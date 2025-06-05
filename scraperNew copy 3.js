@@ -7,14 +7,17 @@ const redis = require('redis');
 const pidusage = require('pidusage');
 require('dotenv').config();
 
+// Cố định múi giờ GMT+7
+process.env.TZ = 'Asia/Ho_Chi_Minh';
+
 const XSMB = require('./src/models/XS_MB.models');
 
 let mongooseConnected = false;
 async function connectMongoDB() {
-    console.log('MongoDB readyState:', mongoose.connection.readyState, 'Connection status: Attempting...');
+    // console.log('MongoDB readyState:', mongoose.connection.readyState, 'Connection status: Attempting...');
     if (mongooseConnected || mongoose.connection.readyState === 1) {
         await mongoose.connection.asPromise().catch(() => { });
-        console.log('MongoDB already connected');
+        // console.log('MongoDB already connected');
         return;
     }
     try {
@@ -40,11 +43,11 @@ const lockFilePath = path.resolve(__dirname, 'scraper.lock');
 const ensureLockFile = () => {
     try {
         if (fs.existsSync(lockFilePath)) {
-            console.log(`Lock file ${lockFilePath} đã tồn tại, thử xóa...`);
+            // console.log(`Lock file ${lockFilePath} đã tồn tại, thử xóa...`);
             fs.unlinkSync(lockFilePath);
         }
         fs.writeFileSync(lockFilePath, '');
-        console.log(`Tạo file ${lockFilePath}`);
+        // console.log(`Tạo file ${lockFilePath}`);
     } catch (error) {
         console.error(`Lỗi khi xử lý file ${lockFilePath}:`, error.message);
         throw error;
@@ -59,14 +62,14 @@ function formatDateToDDMMYYYY(date) {
 }
 
 function isDataComplete(result, completedPrizes, stableCounts, startTime) {
-    console.log('Raw maDB:', result.maDB);
+    // console.log('Raw maDB:', result.maDB);
     const isValidMaDB = result.maDB && typeof result.maDB === 'string' && result.maDB.trim() !== '' && result.maDB.trim() !== '...';
     if (!isValidMaDB) {
-        console.log('maDB không hợp lệ:', {
-            value: result.maDB,
-            isString: typeof result.maDB === 'string',
-            trimmed: result.maDB && result.maDB.trim(),
-        });
+        // console.log('maDB không hợp lệ:', {
+        //     value: result.maDB,
+        //     isString: typeof result.maDB === 'string',
+        //     trimmed: result.maDB && result.maDB.trim(),
+        // });
     }
 
     const checkPrize = (key, data, minLength) => {
@@ -74,14 +77,20 @@ function isDataComplete(result, completedPrizes, stableCounts, startTime) {
         if (isValid) {
             stableCounts[key] = (stableCounts[key] || 0) + 1;
             if (key === 'specialPrize') {
-                console.log(`Giải đặc biệt hợp lệ, stableCounts: ${stableCounts[key]}`);
+                // console.log(`Giải đặc biệt hợp lệ, stableCounts: ${stableCounts[key]}`);
+                if (stableCounts[key] === 1) {
+                    // console.log(`specialPrize hợp lệ đầu tiên tại: ${(Date.now() - startTime) / 1000} giây`);
+                }
                 if (stableCounts[key] >= 3) {
                     completedPrizes[key] = true;
-                    console.log('Giải đặc biệt hoàn thành');
+                    // console.log('Giải đặc biệt hoàn thành');
                 } else if (
                     Object.keys(completedPrizes).every(k => k === 'specialPrize' || completedPrizes[k]) &&
-                    Date.now() - startTime > 5 * 60 * 1000 // Điều chỉnh: Timeout 5 phút cho specialPrize
+                    Date.now() - startTime > 5 * 60 * 1000
                 ) {
+                    if (!completedPrizes[key]) {
+                        // console.log(`Tất cả giải khác hoàn thành tại: ${(Date.now() - startTime) / 1000} giây, bắt đầu chờ specialPrize timeout`);
+                    }
                     console.warn('Timeout chờ giải đặc biệt, sử dụng giá trị cuối cùng:', data);
                     completedPrizes[key] = true;
                 }
@@ -92,7 +101,7 @@ function isDataComplete(result, completedPrizes, stableCounts, startTime) {
             }
         } else {
             stableCounts[key] = 0;
-            console.log(`Giải ${key} không hợp lệ:`, data, `Yêu cầu minLength: ${minLength}`);
+            // console.log(`Giải ${key} không hợp lệ:`, data, `Yêu cầu minLength: ${minLength}`);
         }
         return isValid;
     };
@@ -101,14 +110,18 @@ function isDataComplete(result, completedPrizes, stableCounts, startTime) {
     if (isValidMaDB) stableCounts.maDB += 1;
     completedPrizes.maDB = isValidMaDB && (stableCounts.maDB >= 1);
 
-    completedPrizes.specialPrize = checkPrize('specialPrize', result.specialPrize, 1);
-    completedPrizes.firstPrize = checkPrize('firstPrize', result.firstPrize, 1);
-    completedPrizes.secondPrize = checkPrize('secondPrize', result.secondPrize, 2);
-    completedPrizes.threePrizes = checkPrize('threePrizes', result.threePrizes, 6);
-    completedPrizes.fourPrizes = checkPrize('fourPrizes', result.fourPrizes, 4);
-    completedPrizes.fivePrizes = checkPrize('fivePrizes', result.fivePrizes, 6);
-    completedPrizes.sixPrizes = checkPrize('sixPrizes', result.sixPrizes, 3);
-    completedPrizes.sevenPrizes = checkPrize('sevenPrizes', result.sevenPrizes, 4);
+    checkPrize('specialPrize', result.specialPrize, 1);
+    checkPrize('firstPrize', result.firstPrize, 1);
+    checkPrize('secondPrize', result.secondPrize, 2);
+    checkPrize('threePrizes', result.threePrizes, 6);
+    checkPrize('fourPrizes', result.fourPrizes, 4);
+    checkPrize('fivePrizes', result.fivePrizes, 6);
+    checkPrize('sixPrizes', result.sixPrizes, 3);
+    checkPrize('sevenPrizes', result.sevenPrizes, 4);
+
+    if (Object.keys(completedPrizes).every(k => k === 'specialPrize' || completedPrizes[k]) && !completedPrizes.specialPrize) {
+        // console.log(`Tất cả giải khác hoàn thành tại: ${(Date.now() - startTime) / 1000} giây`);
+    }
 
     const isComplete = (
         completedPrizes.maDB &&
@@ -124,19 +137,19 @@ function isDataComplete(result, completedPrizes, stableCounts, startTime) {
     );
 
     if (!isComplete) {
-        console.log('isDataComplete thất bại:', {
-            maDB: completedPrizes.maDB,
-            tentinh: result.tentinh,
-            specialPrize: completedPrizes.specialPrize,
-            firstPrize: completedPrizes.firstPrize,
-            secondPrize: completedPrizes.secondPrize,
-            threePrizes: completedPrizes.threePrizes,
-            fourPrizes: completedPrizes.fourPrizes,
-            fivePrizes: completedPrizes.fivePrizes,
-            sixPrizes: completedPrizes.sixPrizes,
-            sevenPrizes: completedPrizes.sevenPrizes,
-            stableCounts
-        });
+        // console.log('isDataComplete thất bại:', {
+        //     maDB: completedPrizes.maDB,
+        //     tentinh: result.tentinh,
+        //     specialPrize: completedPrizes.specialPrize,
+        //     firstPrize: completedPrizes.firstPrize,
+        //     secondPrize: completedPrizes.secondPrize,
+        //     threePrizes: completedPrizes.threePrizes,
+        //     fourPrizes: completedPrizes.fourPrizes,
+        //     fivePrizes: completedPrizes.fivePrizes,
+        //     sixPrizes: completedPrizes.sixPrizes,
+        //     sevenPrizes: completedPrizes.sevenPrizes,
+        //     stableCounts
+        // });
     }
 
     return isComplete;
@@ -154,19 +167,17 @@ async function publishToRedis(prizeType, prizeData, additionalData) {
         year,
         month,
     });
-    console.log(`Gửi Redis: ${prizeType}`, prizeData, `Kênh: xsmb:${today}`);
+    // console.log(`Gửi Redis: ${prizeType}`, prizeData, `Kênh: xsmb:${today}`);
 
     try {
         if (!redisClient.isOpen) {
-            console.log('Redis client chưa sẵn sàng, kết nối lại...');
+            // console.log('Redis client chưa sẵn sàng, kết nối lại...');
             await redisClient.connect();
         }
         await redisClient.publish(`xsmb:${today}`, message);
-        await redisClient.hMSet(`kqxs:${today}`, {
-            [prizeType]: JSON.stringify(prizeData),
-            metadata: JSON.stringify({ tentinh, tinh, year, month })
-        }).catch(err => console.error(`Lỗi hMSet ${prizeType}:`, err.message));
-        console.log(`Đã gửi ${prizeType} và metadata qua Redis cho ngày ${today}`);
+        await redisClient.hSet(`kqxs:${today}`, prizeType, JSON.stringify(prizeData)).catch(err => console.error(`Lỗi hSet ${prizeType}:`, err.message));
+        await redisClient.hSet(`kqxs:${today}:meta`, 'metadata', JSON.stringify({ tentinh, tinh, year, month })).catch(err => console.error('Lỗi hSet metadata:', err.message));
+        // console.log(`Đã gửi ${prizeType} và metadata qua Redis cho ngày ${today}`);
     } catch (error) {
         console.error(`Lỗi gửi Redis (${prizeType}):`, error.message);
         throw error;
@@ -179,7 +190,7 @@ async function setRedisExpiration(today) {
             redisClient.expire(`kqxs:${today}`, 7200),
             redisClient.expire(`kqxs:${today}:meta`, 7200),
         ]);
-        console.log(`Đã đặt expire cho kqxs:${today} và metadata`);
+        // console.log(`Đã đặt expire cho kqxs:${today} và metadata`);
     } catch (error) {
         console.error('Lỗi đặt expire Redis:', error.message);
     }
@@ -220,11 +231,11 @@ async function saveToMongoDB(result) {
                     { $set: result },
                     { upsert: true }
                 );
-                console.log(`Cập nhật kết quả ngày ${result.drawDate.toISOString().split('T')[0]} cho ${result.station}`);
+                // console.log(`Cập nhật kết quả ngày ${result.drawDate.toISOString().split('T')[0]} cho ${result.station}`);
             }
         } else {
             await XSMB.create(result);
-            console.log(`Lưu kết quả mới ngày ${result.drawDate.toISOString().split('T')[0]} cho ${result.station}`);
+            // console.log(`Lưu kết quả mới ngày ${result.drawDate.toISOString().split('T')[0]} cho ${result.station}`);
         }
     } catch (error) {
         console.error(`Lỗi khi lưu dữ liệu ngày ${result.drawDate.toISOString().split('T')[0]}:`, error.message);
@@ -241,7 +252,7 @@ async function logPerformance(startTime, iteration, success) {
     });
 }
 
-async function scrapeXSMB(date, station) {
+async function scrapeXSMB(date, station, isTestMode = false) {
     let browser;
     let page;
     let intervalId;
@@ -294,6 +305,22 @@ async function scrapeXSMB(date, station) {
         }
         const formattedDate = date.replace(/\//g, '-');
 
+        // Kiểm tra múi giờ
+        const now = new Date();
+        const timezoneOffset = now.getTimezoneOffset();
+        // console.log(`Múi giờ hệ thống: GMT${timezoneOffset >= 0 ? '-' : '+'}${Math.abs(timezoneOffset / 60)} (offset: ${timezoneOffset} phút)`);
+        if (timezoneOffset !== -420) {
+            console.warn('Múi giờ không phải GMT+7, đã cố định bằng TZ=Asia/Ho_Chi_Minh');
+        }
+
+        // Xác định intervalMs
+        const isLiveWindow = now.getHours() === 18 && now.getMinutes() >= 15 && now.getMinutes() <= 35;
+        const intervalMs = isTestMode || isLiveWindow ? 2000 : 30000;
+        // console.log(`intervalMs được đặt thành: ${intervalMs}ms (isLiveWindow: ${isLiveWindow}, isTestMode: ${isTestMode})`);
+        if (!isLiveWindow && !isTestMode) {
+            console.warn('Chạy ngoài khung trực tiếp (18:15-18:35) và không ở chế độ thử nghiệm, intervalMs = 30000ms. Dùng "node scraper.js <ngày> xsmb test" để mô phỏng khung trực tiếp.');
+        }
+
         await connectMongoDB();
         ensureLockFile();
         release = await lock(lockFilePath, { retries: 3, stale: 30000 });
@@ -310,36 +337,33 @@ async function scrapeXSMB(date, station) {
         if (station.toLowerCase() === 'xsmb') {
             baseUrl = `https://xosovn.com/xsmb-${formattedDate}`;
             dateHash = `#kqngay_${formattedDate.split('-').join('')}`;
-            console.log(`Đang cào dữ liệu từ: ${baseUrl}`);
+            // console.log(`Đang cào dữ liệu từ: ${baseUrl}`);
         } else {
             throw new Error('Chỉ hỗ trợ đài xsmb trong phiên bản này');
         }
 
         const scrapeAndSave = async () => {
             if (isStopped || (page && page.isClosed())) {
-                console.log(`Scraper đã dừng hoặc page đã đóng, bỏ qua lần cào ${iteration + 1}`);
+                // console.log(`Scraper đã dừng hoặc page đã đóng, bỏ qua lần cào ${iteration + 1}`);
                 clearInterval(intervalId);
                 return;
             }
 
             iteration += 1;
             const iterationStart = Date.now();
+            // console.log(`Bắt đầu lần cào ${iteration} tại: ${(iterationStart - startTime) / 1000} giây`);
             try {
-                const now = new Date();
-                const isLiveWindow = now.getHours() === 18 && now.getMinutes() >= 15 && now.getMinutes() <= 35;
-                const intervalMs = isLiveWindow ? 1500 : 30000;
-
                 let attempt = 0;
                 const maxAttempts = 5;
                 while (attempt < maxAttempts) {
                     try {
                         if (iteration === 1) {
-                            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 5000 });
+                            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 7000 });
                         } else {
-                            await page.reload({ waitUntil: 'domcontentloaded', timeout: 5000 });
+                            await page.reload({ waitUntil: 'domcontentloaded', timeout: 7000 });
                         }
                         await page.waitForSelector(`${dateHash} span[class*="v-madb"]`, { timeout: 1000 }).catch(() => {
-                            console.log('Chưa thấy maDB, tiếp tục cào...');
+                            // console.log('Chưa thấy maDB, tiếp tục cào...');
                         });
                         break;
                     } catch (error) {
@@ -363,7 +387,6 @@ async function scrapeXSMB(date, station) {
                     sevenPrizes: `${dateHash} span[class*="v-g7-"]`,
                 };
 
-                const shouldScrapeAll = iteration % 10 === 0;
                 const allOtherPrizesCompleted = Object.keys(completedPrizes).every(key => key === 'specialPrize' || completedPrizes[key]);
                 const prizeOrder = allOtherPrizesCompleted ? ['specialPrize'] : [
                     'firstPrize',
@@ -376,7 +399,7 @@ async function scrapeXSMB(date, station) {
                     'maDB',
                     'specialPrize',
                 ];
-                const result = await page.evaluate(({ dateHash, selectors, completedPrizes, shouldScrapeAll, prizeOrder }) => {
+                const result = await page.evaluate(({ dateHash, selectors, completedPrizes, prizeOrder }) => {
                     const getPrizes = (selector) => {
                         try {
                             const elements = document.querySelectorAll(selector);
@@ -408,7 +431,7 @@ async function scrapeXSMB(date, station) {
                         };
 
                         for (const prizeType of prizeOrder) {
-                            if (prizeType !== 'maDB' && (shouldScrapeAll || !completedPrizes[prizeType])) {
+                            if (prizeType !== 'maDB' && !completedPrizes[prizeType]) {
                                 result[prizeType] = getPrizes(selectors[prizeType]);
                             }
                         }
@@ -429,7 +452,7 @@ async function scrapeXSMB(date, station) {
                             sevenPrizes: [],
                         };
                     }
-                }, { dateHash, selectors, completedPrizes, shouldScrapeAll, prizeOrder });
+                }, { dateHash, selectors, completedPrizes, prizeOrder });
 
                 const dayOfWeekIndex = dateObj.getDay();
                 let tinh, tentinh;
@@ -488,7 +511,7 @@ async function scrapeXSMB(date, station) {
                             if (prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize)) {
                                 const lastPrize = lastPrizeData[key][index] || '...';
                                 if (prize !== lastPrize) {
-                                    console.log(`Kết quả mới cho ${key}_${index}: ${prize}`);
+                                    // console.log(`Kết quả mới cho ${key}_${index}: ${prize}`);
                                     publishToRedis(`${key}_${index}`, prize, formattedResult).catch(err => console.error(`Lỗi publish ${key}_${index}:`, err.message));
                                     lastPrizeData[key][index] = prize;
                                 }
@@ -498,7 +521,7 @@ async function scrapeXSMB(date, station) {
                         if (data && data !== '...' && data !== '') {
                             const lastPrize = lastPrizeData[key] || '...';
                             if (data !== lastPrize) {
-                                console.log(`Kết quả mới cho ${key}: ${data}`);
+                                // console.log(`Kết quả mới cho ${key}: ${data}`);
                                 publishToRedis(key, data, formattedResult).catch(err => console.error(`Lỗi publish ${key}:`, err.message));
                                 lastPrizeData[key] = data;
                             }
@@ -529,7 +552,7 @@ async function scrapeXSMB(date, station) {
                 ) {
                     await saveToMongoDB(formattedResult);
                 } else {
-                    console.log(`Dữ liệu ngày ${date} cho ${station} chưa có, tiếp tục cào...`);
+                    // console.log(`Dữ liệu ngày ${date} cho ${station} chưa có, tiếp tục cào...`);
                 }
 
                 await logPerformance(iterationStart, iteration, true);
@@ -566,25 +589,24 @@ async function scrapeXSMB(date, station) {
 
                     return;
                 }
-
-                if (!isStopped) {
-                    clearInterval(intervalId);
-                    intervalId = setInterval(scrapeAndSave, intervalMs);
-                }
             } catch (error) {
                 console.error(`Lỗi khi cào dữ liệu ngày ${date}:`, error.message);
                 await logPerformance(iterationStart, iteration, false);
                 errorCount += 1;
             }
+            // console.log(`Kết thúc lần cào ${iteration} tại: ${(Date.now() - startTime) / 1000} giây`);
         };
 
         await scrapeAndSave();
+        if (!isStopped) {
+            intervalId = setInterval(scrapeAndSave, intervalMs);
+        }
 
         setTimeout(async () => {
             if (!isStopped) {
                 isStopped = true;
                 clearInterval(intervalId);
-                console.log(`Dữ liệu ngày ${date} cho ${station} dừng sau 17 phút do hết thời gian.`);
+                // console.log(`Dữ liệu ngày ${date} cho ${station} dừng sau 17 phút do hết thời gian.`);
                 const totalDuration = (Date.now() - startTime) / 1000;
                 const stats = await pidusage(process.pid);
                 console.log('Tổng hiệu suất scraper:', {
@@ -631,12 +653,13 @@ async function scrapeXSMB(date, station) {
 
 module.exports = { scrapeXSMB };
 
-const [, , date, station] = process.argv;
+const [, , date, station, testMode] = process.argv;
 if (date && station) {
-    console.log(`Chạy thủ công cho ngày ${date} và đài ${station}`);
-    scrapeXSMB(date, station);
+    const isTestMode = testMode === 'test';
+    console.log(`Chạy thủ công cho ngày ${date} và đài ${station}${isTestMode ? ' (chế độ thử nghiệm)' : ''}`);
+    scrapeXSMB(date, station, isTestMode);
 } else {
-    console.log('Chạy thủ công: node scraper.js 29/04/2025 xsmb');
+    console.log('Chạy thủ công: node scraper.js 24/01/2025 xsmb [test]');
 }
 
 process.on('SIGINT', async () => {
