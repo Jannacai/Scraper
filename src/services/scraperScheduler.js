@@ -1,33 +1,22 @@
 const schedule = require('node-schedule');
-const { scrapeXSMB } = require('../scraper');
+const { scrapeXSMB } = require('../../scraper');
 
 const startScraperScheduler = (config) => {
     const { schedule: cronSchedule, duration, station } = config;
-    console.log(`Starting scheduler with cron: ${cronSchedule}, duration: ${duration / 60000} minutes`);
+    console.log(`Khởi động scheduler cào dữ liệu với lịch: ${cronSchedule}, thời gian chạy: ${duration / 60000} phút`);
 
-    schedule.scheduleJob(cronSchedule, async () => {
-        console.log('Starting XSMB scrape at 18:15...');
+    schedule.scheduleJob(cronSchedule, () => {
+        console.log('Bắt đầu cào dữ liệu XSMB lúc 18:15...');
         const today = new Date().toLocaleDateString('vi-VN', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
         });
-        const retryScrape = async (date, station, retries = 3) => {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    await scrapeXSMB(date, station);
-                    return;
-                } catch (error) {
-                    console.warn(`Retry ${i + 1}: ${error.message}`);
-                    if (i === retries - 1) throw error;
-                    await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
-                }
-            }
-        };
-        await retryScrape(today, station);
+        scrapeXSMB(today, station);
 
+        // Dừng cào sau 20 phút (18:35)
         setTimeout(() => {
-            console.log('Stopped XSMB scrape at 18:35.');
+            console.log('Dừng cào dữ liệu XSMB lúc 18:35.');
         }, duration);
     });
 };
