@@ -27,11 +27,10 @@ async function connectMongoDB() {
     }
 }
 
-// Khởi tạo Redis client mà không gọi connect() ngay lập tức
 const redisClient = redis.createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
 });
-redisClient.on('error', (err) => console.error('Redis Client Error:', err));
+// Không gọi connect() ở đây để tránh mở socket trước khi cần
 
 function formatDateToDDMMYYYY(date) {
     const day = String(date.getDate()).padStart(2, '0');
@@ -92,7 +91,6 @@ async function publishToRedis(changes, additionalData) {
 async function setRedisExpiration(today) {
     try {
         if (!redisClient.isOpen) {
-            console.log('Redis client chưa sẵn sàng, kết nối lại...');
             await redisClient.connect();
         }
         await Promise.all([
@@ -418,15 +416,19 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                         mongooseConnected = false;
                         console.log('Đã đóng kết nối MongoDB');
                     }
+                    if (redisClient.isOpen) {
+                        await redisClient.quit();
+                        console.log('Đã đóng kết nối Redis');
+                    }
                     return;
                 }
 
                 await logPerformance(iterationStart, iteration, true);
-                successCount += 1;
+                successCount++;
             } catch (error) {
                 console.error(`Lỗi khi cào dữ liệu ngày ${date}:`, error.message);
                 await logPerformance(iterationStart, iteration, false);
-                errorCount += 1;
+                errorCount++;
             }
         };
 
@@ -461,6 +463,10 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     mongooseConnected = false;
                     console.log('Đã đóng kết nối MongoDB');
                 }
+                if (redisClient.isOpen) {
+                    await redisClient.quit();
+                    console.log('Đã đóng kết nối Redis');
+                }
             }
         }, 17 * 60 * 1000);
 
@@ -474,6 +480,10 @@ async function scrapeXSMB(date, station, isTestMode = false) {
             await mongoose.connection.close();
             mongooseConnected = false;
             console.log('Đã đóng kết nối MongoDB');
+        }
+        if (redisClient.isOpen) {
+            await redisClient.quit();
+            console.log('Đã đóng kết nối Redis');
         }
     }
 }
