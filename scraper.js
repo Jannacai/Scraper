@@ -30,7 +30,6 @@ async function connectMongoDB() {
 const redisClient = redis.createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
 });
-// Không gọi connect() ở đây để tránh mở socket trước khi cần
 
 function formatDateToDDMMYYYY(date) {
     const day = String(date.getDate()).padStart(2, '0');
@@ -209,7 +208,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         }
         const formattedDate = date.replace(/\//g, '-');
 
-        const isLiveWindow = new Date().getHours() === 18 && new Date().getMinutes() >= 13 && new Date().getMinutes() <= 31;
+        const isLiveWindow = new Date().getHours() === 18 && new Date().getMinutes() >= 12 && new Date().getMinutes() <= 32;
         const intervalMs = isTestMode || isLiveWindow ? 2000 : 10000;
         console.log(`intervalMs: ${intervalMs}ms (isLiveWindow: ${isLiveWindow}, isTestMode: ${isTestMode})`);
 
@@ -272,14 +271,22 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     const getPrizes = (selector) => {
                         try {
                             const elements = document.querySelectorAll(selector);
-                            return Array.from(elements).map(elem => {
+                            return Array.from(elements).map((elem, index) => {
                                 const outputDivs = elem.querySelectorAll('div.output');
+                                const textContent = elem.textContent.trim();
                                 if (outputDivs.length > 0) {
-                                    return { value: '...', status: 'animating' };
+                                    const values = Array.from(outputDivs).map(div => div.textContent.trim());
+                                    return {
+                                        value: values.length > 0 ? values : ['...'],
+                                        status: 'animating'
+                                    };
+                                } else {
+                                    return {
+                                        value: textContent !== '' && /^\d+$/.test(textContent) ? textContent : '...',
+                                        status: textContent !== '...' && textContent !== '****' && /^\d+$/.test(textContent) ? 'complete' : '...'
+                                    };
                                 }
-                                const prize = elem.textContent.trim();
-                                return { value: prize, status: prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize) ? 'complete' : '...' };
-                            }).filter(item => item.value && item.value !== '...' && item.value !== '****');
+                            }).filter(item => item.value && item.value.length > 0);
                         } catch (error) {
                             console.error(`Lỗi lấy selector ${selector}:`, error.message);
                             return [];
@@ -292,7 +299,9 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                             const maDBElement = document.querySelector(selectors.maDB);
                             if (maDBElement) {
                                 const outputDivs = maDBElement.querySelectorAll('div.output');
-                                result.maDB = outputDivs.length > 0 ? { value: '...', status: 'animating' } : { value: maDBElement.textContent.trim(), status: maDBElement.textContent.trim() !== '...' ? 'complete' : '...' };
+                                result.maDB = outputDivs.length > 0
+                                    ? { value: Array.from(outputDivs).map(div => div.textContent.trim()), status: 'animating' }
+                                    : { value: maDBElement.textContent.trim(), status: maDBElement.textContent.trim() !== '...' ? 'complete' : '...' };
                             } else {
                                 result.maDB = { value: '...', status: '...' };
                             }
@@ -496,7 +505,7 @@ if (date && station) {
     console.log(`Chạy thủ công cho ngày ${date} và đài ${station}${isTestMode ? ' (chế độ thử nghiệm)' : ''}`);
     scrapeXSMB(date, station, isTestMode);
 } else {
-    console.log('Chạy thủ công: node scraper.js 24/01/2025 xsmb [test]');
+    console.log('Chạy thủ công: node scraper.js 12/06/2025 xsmb [test]');
 }
 
 process.on('SIGINT', async () => {
