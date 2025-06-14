@@ -496,7 +496,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     console.log('Đã đóng kết nối MongoDB');
                 }
             }
-        }, 1 * 60 * 1000);
+        }, 17 * 60 * 1000);
 
     } catch (error) {
         console.error(`Lỗi khi khởi động scraper ngày ${date}:`, error.message);
