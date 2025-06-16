@@ -1,7 +1,5 @@
 const puppeteer = require('puppeteer');
-const cheerio = require('cheerio');
 const mongoose = require('mongoose');
-const schedule = require('node-schedule');
 const redis = require('redis');
 const { lock } = require('proper-lockfile');
 const fs = require('fs');
@@ -11,11 +9,25 @@ require('dotenv').config();
 
 const XSMT = require('./src/models/XS_MT.models');
 
-// Kết nối MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/xsmt', {
-    maxPoolSize: 20,
-    minPoolSize: 2,
-}).then(() => console.log('Đã kết nối MongoDB')).catch(err => console.error('Lỗi kết nối MongoDB:', err));
+// Kết nối MongoDB với kiểm tra trạng thái
+let mongooseConnected = false;
+async function connectMongoDB() {
+    if (mongooseConnected || mongoose.connection.readyState === 1) {
+        console.log('MongoDB already connected');
+        return;
+    }
+    try {
+        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/xsmt', {
+            maxPoolSize: 20,
+            minPoolSize: 2,
+        });
+        mongooseConnected = true;
+        console.log('Đã kết nối MongoDB');
+    } catch (err) {
+        console.error('Lỗi kết nối MongoDB:', err.message);
+        throw err;
+    }
+}
 
 // Kết nối Redis
 const redisClient = redis.createClient({
@@ -58,19 +70,26 @@ function formatDateToDDMMYYYY(date) {
 }
 
 // Hàm kiểm tra dữ liệu đầy đủ cho một tỉnh
-function isDataComplete(result) {
-    return (
-        result.tentinh && result.tentinh.length >= 1 && !result.tentinh.startsWith('Tỉnh_') &&
-        result.specialPrize && result.specialPrize.length >= 1 && !result.specialPrize.includes('...') &&
-        result.firstPrize && result.firstPrize.length >= 1 && !result.firstPrize.includes('...') &&
-        result.secondPrize && result.secondPrize.length >= 1 && !result.secondPrize.includes('...') &&
-        result.threePrizes && result.threePrizes.length >= 2 && !result.threePrizes.includes('...') &&
-        result.fourPrizes && result.fourPrizes.length >= 7 && !result.fourPrizes.includes('...') &&
-        result.fivePrizes && result.fivePrizes.length >= 1 && !result.fivePrizes.includes('...') &&
-        result.sixPrizes && result.sixPrizes.length >= 3 && !result.sixPrizes.includes('...') &&
-        result.sevenPrizes && result.sevenPrizes.length >= 1 && !result.sevenPrizes.includes('...') &&
-        result.eightPrizes && result.eightPrizes.length >= 1 && !result.eightPrizes.includes('...')
-    );
+function isDataComplete(result, completedPrizes, stableCounts) {
+    const checkPrize = (key, data, minLength) => {
+        const isValid = Array.isArray(data) && data.length >= minLength && data.every(prize => prize && prize !== '...' && /^\d+$/.test(prize));
+        stableCounts[key] = isValid ? (stableCounts[key] || 0) + 1 : 0;
+        completedPrizes[key] = isValid && stableCounts[key] >= (key === 'specialPrize' ? 2 : 1);
+        return isValid;
+    };
+
+    checkPrize('specialPrize', result.specialPrize, 1);
+    checkPrize('firstPrize', result.firstPrize, 1);
+    checkPrize('secondPrize', result.secondPrize, 1);
+    checkPrize('threePrizes', result.threePrizes, 2);
+    checkPrize('fourPrizes', result.fourPrizes, 7);
+    checkPrize('fivePrizes', result.fivePrizes, 1);
+    checkPrize('sixPrizes', result.sixPrizes, 3);
+    checkPrize('sevenPrizes', result.sevenPrizes, 1);
+    checkPrize('eightPrizes', result.eightPrizes, 1);
+
+    return result.tentinh && result.tentinh.length >= 1 && !result.tentinh.startsWith('Tỉnh_') &&
+        Object.keys(completedPrizes).every(k => completedPrizes[k]);
 }
 
 // Hàm kiểm tra xem có dữ liệu nào đáng lưu không
@@ -78,50 +97,40 @@ function hasAnyData(result) {
     return (
         result.tentinh && result.tentinh.length >= 1 && !result.tentinh.startsWith('Tỉnh_') &&
         (
-            (result.specialPrize && result.specialPrize.length >= 1 && !result.specialPrize.includes('...')) ||
-            (result.firstPrize && result.firstPrize.length >= 1 && !result.firstPrize.includes('...')) ||
-            (result.secondPrize && result.secondPrize.length >= 1 && !result.secondPrize.includes('...')) ||
-            (result.threePrizes && result.threePrizes.length >= 1 && !result.threePrizes.includes('...')) ||
-            (result.fourPrizes && result.fourPrizes.length >= 1 && !result.fourPrizes.includes('...')) ||
-            (result.fivePrizes && result.fivePrizes.length >= 1 && !result.fivePrizes.includes('...')) ||
-            (result.sixPrizes && result.sixPrizes.length >= 1 && !result.sixPrizes.includes('...')) ||
-            (result.sevenPrizes && result.sevenPrizes.length >= 1 && !result.sevenPrizes.includes('...')) ||
-            (result.eightPrizes && result.eightPrizes.length >= 1 && !result.eightPrizes.includes('...'))
+            (result.specialPrize && result.specialPrize.length >= 1 && result.specialPrize.every(p => p && p !== '...')) ||
+            (result.firstPrize && result.firstPrize.length >= 1 && result.firstPrize.every(p => p && p !== '...')) ||
+            (result.secondPrize && result.secondPrize.length >= 1 && result.secondPrize.every(p => p && p !== '...')) ||
+            (result.threePrizes && result.threePrizes.length >= 1 && result.threePrizes.every(p => p && p !== '...')) ||
+            (result.fourPrizes && result.fourPrizes.length >= 1 && result.fourPrizes.every(p => p && p !== '...')) ||
+            (result.fivePrizes && result.fivePrizes.length >= 1 && result.fivePrizes.every(p => p && p !== '...')) ||
+            (result.sixPrizes && result.sixPrizes.length >= 1 && result.sixPrizes.every(p => p && p !== '...')) ||
+            (result.sevenPrizes && result.sevenPrizes.length >= 1 && result.sevenPrizes.every(p => p && p !== '...')) ||
+            (result.eightPrizes && result.eightPrizes.length >= 1 && result.eightPrizes.every(p => p && p !== '...'))
         )
     );
 }
 
 // Hàm publish dữ liệu lên Redis
-async function publishToRedis(prizeType, prizeData, additionalData) {
+async function publishToRedis(changes, additionalData) {
     const { drawDate, tentinh, tinh, year, month } = additionalData;
     const today = formatDateToDDMMYYYY(new Date(drawDate));
-    const message = JSON.stringify({
-        prizeType,
-        prizeData,
-        drawDate: today,
-        tentinh,
-        tinh,
-        year,
-        month,
-    });
-    console.log(`Chuẩn bị gửi Redis: ${prizeType} cho tỉnh ${tentinh}`, prizeData, `Kênh: xsmt:${today}:${tinh}`);
-
     try {
         if (!redisClient.isOpen) {
             console.log('Redis client chưa sẵn sàng, kết nối lại...');
             await redisClient.connect();
-            console.log('Kết nối Redis thành công');
         }
-        await Promise.all([
-            redisClient.publish(`xsmt:${today}:${tinh}`, message),
-            redisClient.hSet(`kqxs:xsmt:${today}:${tinh}`, prizeType, JSON.stringify(prizeData)),
-            redisClient.hSet(`kqxs:xsmt:${today}:${tinh}:meta`, 'metadata', JSON.stringify({ tentinh, tinh, year, month })),
-            redisClient.expire(`kqxs:xsmt:${today}:${tinh}`, 7200),
-            redisClient.expire(`kqxs:xsmt:${today}:${tinh}:meta`, 7200),
-        ]);
-        console.log(`Đã gửi ${prizeType} và metadata qua Redis cho ngày ${today}, tỉnh ${tentinh}`);
+        const pipeline = redisClient.multi();
+        for (const { key, data } of changes) {
+            pipeline.publish(`xsmt:${today}:${tinh}`, JSON.stringify({ prizeType: key, prizeData: data, drawDate: today, tentinh, tinh, year, month }));
+            pipeline.hSet(`kqxs:xsmt:${today}:${tinh}`, key, JSON.stringify(data));
+        }
+        pipeline.hSet(`kqxs:xsmt:${today}:${tinh}:meta`, 'metadata', JSON.stringify({ tentinh, tinh, year, month }));
+        pipeline.expire(`kqxs:xsmt:${today}:${tinh}`, 7200);
+        pipeline.expire(`kqxs:xsmt:${today}:${tinh}:meta`, 7200);
+        await pipeline.exec();
+        console.log(`Đã gửi ${changes.length} thay đổi qua Redis cho tỉnh ${tentinh}`);
     } catch (error) {
-        console.error(`Lỗi gửi Redis (${prizeType}, tỉnh ${tentinh}):`, error.message);
+        console.error(`Lỗi gửi Redis (tỉnh ${tentinh}):`, error.message);
         throw error;
     }
 }
@@ -178,13 +187,15 @@ async function saveToMongoDB(result) {
 
 // Hàm ghi log hiệu suất
 async function logPerformance(startTime, iteration, success, province) {
-    const stats = await pidusage(process.pid);
-    const duration = (Date.now() - startTime) / 1000;
-    console.log(`Lần cào ${iteration} cho tỉnh ${province} (${success ? 'Thành công' : 'Thất bại'}):`, {
-        duration: `${duration.toFixed(2)}s`,
-        cpu: `${stats.cpu.toFixed(2)}%`,
-        memory: `${(stats.memory / 1024 / 1024).toFixed(2)}MB`,
-    });
+    if (iteration % 10 === 0 || !success) {
+        const stats = await pidusage(process.pid);
+        const duration = (Date.now() - startTime) / 1000;
+        console.log(`Lần cào ${iteration} cho tỉnh ${province} (${success ? 'Thành công' : 'Thất bại'}):`, {
+            duration: `${duration.toFixed(2)}s`,
+            cpu: `${stats.cpu.toFixed(2)}%`,
+            memory: `${(stats.memory / 1024 / 1024).toFixed(2)}MB`,
+        });
+    }
 }
 
 // Hàm cào dữ liệu XSMT
@@ -193,17 +204,23 @@ async function scrapeXSMT(date, station) {
     let page;
     let intervalId;
     let release;
+    let isStopped = false;
     let iteration = 0;
     let successCount = 0;
     let errorCount = 0;
     const startTime = Date.now();
-    let lastPrizeDataByProvince = {};
+    const lastPrizeDataByProvince = {};
 
     try {
         const dateParts = date.split('/');
         const dateObj = new Date(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
+        if (isNaN(dateObj.getTime())) {
+            throw new Error('Ngày không hợp lệ: ' + date);
+        }
         const formattedDate = date.replace(/\//g, '-');
+        const dateHash = `#kqngay_${formattedDate.split('-').join('')}`;
 
+        await connectMongoDB();
         ensureLockFile();
         release = await lock(lockFilePath, { retries: 3, stale: 10000 });
 
@@ -231,21 +248,40 @@ async function scrapeXSMT(date, station) {
             throw new Error('Chỉ hỗ trợ đài xsmt trong phiên bản này');
         }
 
+        const selectors = {
+            specialPrize: `${dateHash} span[class*="v-gdb"]`,
+            firstPrize: `${dateHash} span[class*="v-g1"]`,
+            secondPrize: `${dateHash} span[class*="v-g2"]`,
+            threePrizes: `${dateHash} span[class*="v-g3-"]`,
+            fourPrizes: `${dateHash} span[class*="v-g4-"]`,
+            fivePrizes: `${dateHash} span[class*="v-g5"]`,
+            sixPrizes: `${dateHash} span[class*="v-g6-"]`,
+            sevenPrizes: `${dateHash} span[class*="v-g7"]`,
+            eightPrizes: `${dateHash} span[class*="v-g8"]`,
+        };
+
         const scrapeAndSave = async () => {
+            if (isStopped || (page && page.isClosed())) {
+                console.log(`Scraper đã dừng hoặc page đã đóng`);
+                clearInterval(intervalId);
+                return;
+            }
+
             iteration += 1;
             const iterationStart = Date.now();
+            console.log(`Bắt đầu lần cào ${iteration}`);
+
             try {
-                const now = new Date();
-                const isLiveWindow = now.getHours() === 16 && now.getMinutes() >= 15 && now.getMinutes() <= 35;
-                const intervalMs = isLiveWindow ? 3000 : 30000;
+                const isLiveWindow = new Date().getHours() === 17 && new Date().getMinutes() >= 10 && new Date().getMinutes() <= 33;
+                const intervalMs = isLiveWindow ? 2000 : 20000;
 
                 let attempt = 0;
                 const maxAttempts = 3;
                 while (attempt < maxAttempts) {
                     try {
-                        await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-                        await page.waitForSelector('span[class*="v-g4-"]', { timeout: 5000 }).catch(() => {
-                            console.log('Chưa thấy giải 4, tiếp tục cào...');
+                        await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 7000 });
+                        await page.waitForSelector('table.kqsx-mt', { timeout: 2000 }).catch(() => {
+                            console.log('Chưa thấy bảng kqsx-mt, tiếp tục cào...');
                         });
                         break;
                     } catch (error) {
@@ -256,35 +292,78 @@ async function scrapeXSMT(date, station) {
                     }
                 }
 
-                const html = await page.content();
-                const $ = cheerio.load(html);
-                const resultTable = $('table.kqsx-mt');
+                const result = await page.evaluate(({ dateHash, selectors }) => {
+                    const getPrizes = (selector) => {
+                        try {
+                            const elements = document.querySelectorAll(selector);
+                            return Array.from(elements)
+                                .map(elem => elem.getAttribute('data-id')?.trim() || '')
+                                .filter(prize => prize && prize !== '...' && /^\d+$/.test(prize));
+                        } catch (error) {
+                            console.error(`Lỗi lấy selector ${selector}:`, error.message);
+                            return [];
+                        }
+                    };
 
-                if (resultTable.length === 0) {
-                    console.log('Không tìm thấy bảng kết quả với class="kqsx-mt". Có thể trang không có dữ liệu hoặc cấu trúc HTML đã thay đổi.');
-                    await logPerformance(iterationStart, iteration, false, 'N/A');
-                    errorCount += 1;
-                    return;
-                }
-
-                const provinceRow = resultTable.find('tr.bg-pr');
-                const provinces = [];
-                provinceRow.find('th').each((i, elem) => {
-                    if (i === 0) return;
-                    const provinceName = $(elem).find('a').text().trim();
-                    if (provinceName) {
-                        provinces.push(provinceName);
+                    const provinces = [];
+                    const provinceRow = document.querySelector('table.kqsx-mt tr.bg-pr');
+                    if (provinceRow) {
+                        provinceRow.querySelectorAll('th').forEach((elem, i) => {
+                            if (i === 0) return;
+                            const provinceName = elem.querySelector('a')?.textContent.trim();
+                            if (provinceName) provinces.push(provinceName);
+                        });
                     }
-                });
 
-                if (provinces.length === 0) {
+                    const provincesData = {};
+                    provinces.forEach(province => {
+                        provincesData[province] = {
+                            specialPrize: [],
+                            firstPrize: [],
+                            secondPrize: [],
+                            threePrizes: [],
+                            fourPrizes: [],
+                            fivePrizes: [],
+                            sixPrizes: [],
+                            sevenPrizes: [],
+                            eightPrizes: [],
+                        };
+                    });
+
+                    const resultTable = document.querySelector('table.kqsx-mt');
+                    if (resultTable) {
+                        resultTable.querySelectorAll('tr').forEach((row, i) => {
+                            if (row.className === 'bg-pr') return;
+                            row.querySelectorAll('td').forEach((cell, j) => {
+                                if (j === 0) return;
+                                const province = provinces[j - 1];
+                                if (!province) return;
+
+                                Object.entries(selectors).forEach(([prizeType, selector]) => {
+                                    const spans = cell.querySelectorAll(selector);
+                                    spans.forEach(span => {
+                                        const prize = span.getAttribute('data-id')?.trim();
+                                        if (prize && prize !== '...' && /^\d+$/.test(prize)) {
+                                            provincesData[province][prizeType].push(prize);
+                                        }
+                                    });
+                                });
+                            });
+                        });
+                    }
+
+                    const drawDate = document.querySelector('.ngay_quay, .draw-date, .date, h1.df-title')?.textContent.trim().match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || '';
+                    return { provinces, provincesData, drawDate };
+                }, { dateHash, selectors });
+
+                if (result.provinces.length === 0) {
                     console.log('Không tìm thấy tỉnh nào trong bảng kết quả.');
                     await logPerformance(iterationStart, iteration, false, 'N/A');
                     errorCount += 1;
                     return;
                 }
 
-                provinces.forEach(province => {
+                result.provinces.forEach(province => {
                     if (!lastPrizeDataByProvince[province]) {
                         lastPrizeDataByProvince[province] = {
                             specialPrize: ['...'],
@@ -297,92 +376,39 @@ async function scrapeXSMT(date, station) {
                             sevenPrizes: ['...'],
                             eightPrizes: ['...'],
                         };
+                        lastPrizeDataByProvince[province].completedPrizes = {
+                            specialPrize: false,
+                            firstPrize: false,
+                            secondPrize: false,
+                            threePrizes: false,
+                            fourPrizes: false,
+                            fivePrizes: false,
+                            sixPrizes: false,
+                            sevenPrizes: false,
+                            eightPrizes: false,
+                        };
+                        lastPrizeDataByProvince[province].stableCounts = {
+                            specialPrize: 0,
+                            firstPrize: 0,
+                            secondPrize: 0,
+                            threePrizes: 0,
+                            fourPrizes: 0,
+                            fivePrizes: 0,
+                            sixPrizes: 0,
+                            sevenPrizes: 0,
+                            eightPrizes: 0,
+                        };
                     }
                 });
 
-                const provincesData = {};
-                provinces.forEach(province => {
-                    provincesData[province] = {
-                        specialPrize: [],
-                        firstPrize: [],
-                        secondPrize: [],
-                        threePrizes: [],
-                        fourPrizes: [],
-                        fivePrizes: [],
-                        sixPrizes: [],
-                        sevenPrizes: [],
-                        eightPrizes: [],
-                    };
-                });
-
-                resultTable.find('tr').each((i, row) => {
-                    const rowClass = $(row).attr('class') || 'undefined';
-                    if (rowClass === 'bg-pr') return;
-
-                    $(row).find('td').each((j, cell) => {
-                        if (j === 0) return;
-                        const province = provinces[j - 1];
-                        if (!province) return;
-
-                        const spans = $(cell).find('span');
-                        if (spans.length === 0) return;
-
-                        spans.each((k, span) => {
-                            const spanClass = $(span).attr('class')?.trim();
-                            const result = $(span).text().trim();
-                            if (!spanClass || !result) return;
-
-                            let prizeType;
-                            let maxResults;
-
-                            if (spanClass.includes('v-gdb')) {
-                                prizeType = 'specialPrize';
-                                maxResults = 1;
-                            } else if (spanClass.includes('v-g1')) {
-                                prizeType = 'firstPrize';
-                                maxResults = 1;
-                            } else if (spanClass.includes('v-g2')) {
-                                prizeType = 'secondPrize';
-                                maxResults = 1;
-                            } else if (spanClass.includes('v-g3')) {
-                                prizeType = 'threePrizes';
-                                maxResults = 2;
-                            } else if (spanClass.includes('v-g4')) {
-                                prizeType = 'fourPrizes';
-                                maxResults = 7;
-                            } else if (spanClass.includes('v-g5')) {
-                                prizeType = 'fivePrizes';
-                                maxResults = 1;
-                            } else if (spanClass.includes('v-g6')) {
-                                prizeType = 'sixPrizes';
-                                maxResults = 3;
-                            } else if (spanClass.includes('v-g7')) {
-                                prizeType = 'sevenPrizes';
-                                maxResults = 1;
-                            } else if (spanClass.includes('v-g8')) {
-                                prizeType = 'eightPrizes';
-                                maxResults = 1;
-                            } else {
-                                return;
-                            }
-
-                            const currentResults = provincesData[province][prizeType];
-                            const remainingSlots = maxResults - currentResults.length;
-                            if (remainingSlots <= 0) return;
-
-                            currentResults.push(result);
-                        });
-                    });
-                });
-
-                const drawDate = $('.ngay_quay, .draw-date, .date, h1.df-title').first().text().trim().match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || date;
+                const drawDate = result.drawDate || date;
                 const dateObj = new Date(drawDate.split('/').reverse().join('-'));
                 const daysOfWeek = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
                 const dayOfWeek = daysOfWeek[dateObj.getDay()];
 
                 let allProvincesComplete = true;
 
-                for (const tentinh of provinces) {
+                for (const tentinh of result.provinces) {
                     const tinh = toKebabCase(tentinh);
                     const slug = `xsmt-${formattedDate}-${tinh}`;
 
@@ -394,52 +420,59 @@ async function scrapeXSMT(date, station) {
                         dayOfWeek,
                         tentinh,
                         tinh,
-                        specialPrize: provincesData[tentinh]?.specialPrize.length ? provincesData[tentinh].specialPrize : ['...'],
-                        firstPrize: provincesData[tentinh]?.firstPrize.length ? provincesData[tentinh].firstPrize : ['...'],
-                        secondPrize: provincesData[tentinh]?.secondPrize.length ? provincesData[tentinh].secondPrize : ['...'],
-                        threePrizes: provincesData[tentinh]?.threePrizes.length ? provincesData[tentinh].threePrizes : ['...', '...'],
-                        fourPrizes: provincesData[tentinh]?.fourPrizes.length ? provincesData[tentinh].fourPrizes : ['...', '...', '...', '...', '...', '...', '...'],
-                        fivePrizes: provincesData[tentinh]?.fivePrizes.length ? provincesData[tentinh].fivePrizes : ['...'],
-                        sixPrizes: provincesData[tentinh]?.sixPrizes.length ? provincesData[tentinh].sixPrizes : ['...', '...', '...'],
-                        sevenPrizes: provincesData[tentinh]?.sevenPrizes.length ? provincesData[tentinh].sevenPrizes : ['...'],
-                        eightPrizes: provincesData[tentinh]?.eightPrizes.length ? provincesData[tentinh].eightPrizes : ['...'],
+                        specialPrize: result.provincesData[tentinh]?.specialPrize.length ? result.provincesData[tentinh].specialPrize : lastPrizeDataByProvince[tentinh].specialPrize,
+                        firstPrize: result.provincesData[tentinh]?.firstPrize.length ? result.provincesData[tentinh].firstPrize : lastPrizeDataByProvince[tentinh].firstPrize,
+                        secondPrize: result.provincesData[tentinh]?.secondPrize.length ? result.provincesData[tentinh].secondPrize : lastPrizeDataByProvince[tentinh].secondPrize,
+                        threePrizes: result.provincesData[tentinh]?.threePrizes.length ? result.provincesData[tentinh].threePrizes : lastPrizeDataByProvince[tentinh].threePrizes,
+                        fourPrizes: result.provincesData[tentinh]?.fourPrizes.length ? result.provincesData[tentinh].fourPrizes : lastPrizeDataByProvince[tentinh].fourPrizes,
+                        fivePrizes: result.provincesData[tentinh]?.fivePrizes.length ? result.provincesData[tentinh].fivePrizes : lastPrizeDataByProvince[tentinh].fivePrizes,
+                        sixPrizes: result.provincesData[tentinh]?.sixPrizes.length ? result.provincesData[tentinh].sixPrizes : lastPrizeDataByProvince[tentinh].sixPrizes,
+                        sevenPrizes: result.provincesData[tentinh]?.sevenPrizes.length ? result.provincesData[tentinh].sevenPrizes : lastPrizeDataByProvince[tentinh].sevenPrizes,
+                        eightPrizes: result.provincesData[tentinh]?.eightPrizes.length ? result.provincesData[tentinh].eightPrizes : lastPrizeDataByProvince[tentinh].eightPrizes,
                         station,
                         createdAt: new Date(),
                     };
 
                     const prizeTypes = [
-                        { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true },
-                        { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true },
-                        { key: 'secondPrize', data: formattedResult.secondPrize, isArray: true },
-                        { key: 'threePrizes', data: formattedResult.threePrizes, isArray: true },
-                        { key: 'fourPrizes', data: formattedResult.fourPrizes, isArray: true },
-                        { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true },
-                        { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true },
-                        { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true },
-                        { key: 'eightPrizes', data: formattedResult.eightPrizes, isArray: true },
+                        { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true, minLength: 1 },
+                        { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true, minLength: 1 },
+                        { key: 'secondPrize', data: formattedResult.secondPrize, isArray: true, minLength: 1 },
+                        { key: 'threePrizes', data: formattedResult.threePrizes, isArray: true, minLength: 2 },
+                        { key: 'fourPrizes', data: formattedResult.fourPrizes, isArray: true, minLength: 7 },
+                        { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true, minLength: 1 },
+                        { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true, minLength: 3 },
+                        { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true, minLength: 1 },
+                        { key: 'eightPrizes', data: formattedResult.eightPrizes, isArray: true, minLength: 1 },
                     ];
 
-                    for (const { key, data, isArray } of prizeTypes) {
-                        if (isArray) {
+                    const changes = [];
+                    for (const { key, data, isArray, minLength } of prizeTypes) {
+                        if (isArray && Array.isArray(data)) {
                             data.forEach((prize, index) => {
-                                if (prize && prize !== '...') {
-                                    const lastPrize = lastPrizeDataByProvince[tentinh][key][index] || '...';
-                                    if (prize !== lastPrize) {
-                                        console.log(`Kết quả mới cho ${key}_${index} (tỉnh ${tentinh}): ${prize}`);
-                                        publishToRedis(`${key}_${index}`, prize, formattedResult);
-                                        lastPrizeDataByProvince[tentinh][key][index] = prize;
-                                    }
+                                if (prize && prize !== '...' && /^\d+$/.test(prize) && prize !== lastPrizeDataByProvince[tentinh][key][index]) {
+                                    changes.push({ key: `${key}_${index}`, data: prize });
+                                    lastPrizeDataByProvince[tentinh][key][index] = prize;
                                 }
                             });
+                            if (data.length >= minLength && data.every(p => p && p !== '...' && /^\d+$/.test(p))) {
+                                changes.push({ key, data });
+                            }
                         }
                     }
 
-                    for (const { key, isArray } of prizeTypes) {
-                        if (isArray && formattedResult[key].some(prize => prize !== '...')) {
-                            console.log(`Publish mảng ${key} (tỉnh ${tentinh}):`, formattedResult[key]);
-                            publishToRedis(key, formattedResult[key], formattedResult);
-                        }
+                    if (changes.length) {
+                        await publishToRedis(changes, formattedResult);
                     }
+
+                    formattedResult.specialPrize = lastPrizeDataByProvince[tentinh].specialPrize;
+                    formattedResult.firstPrize = lastPrizeDataByProvince[tentinh].firstPrize;
+                    formattedResult.secondPrize = lastPrizeDataByProvince[tentinh].secondPrize;
+                    formattedResult.threePrizes = lastPrizeDataByProvince[tentinh].threePrizes;
+                    formattedResult.fourPrizes = lastPrizeDataByProvince[tentinh].fourPrizes;
+                    formattedResult.fivePrizes = lastPrizeDataByProvince[tentinh].fivePrizes;
+                    formattedResult.sixPrizes = lastPrizeDataByProvince[tentinh].sixPrizes;
+                    formattedResult.sevenPrizes = lastPrizeDataByProvince[tentinh].sevenPrizes;
+                    formattedResult.eightPrizes = lastPrizeDataByProvince[tentinh].eightPrizes;
 
                     if (hasAnyData(formattedResult)) {
                         await saveToMongoDB(formattedResult);
@@ -447,17 +480,18 @@ async function scrapeXSMT(date, station) {
                         console.log(`Dữ liệu ngày ${date} cho tỉnh ${tentinh} chưa có, tiếp tục cào...`);
                     }
 
-                    await logPerformance(iterationStart, iteration, true, tentinh);
-
-                    if (!isDataComplete(formattedResult)) {
+                    if (!isDataComplete(formattedResult, lastPrizeDataByProvince[tentinh].completedPrizes, lastPrizeDataByProvince[tentinh].stableCounts)) {
                         allProvincesComplete = false;
                     }
+
+                    await logPerformance(iterationStart, iteration, true, tentinh);
                 }
 
                 successCount += 1;
 
                 if (allProvincesComplete) {
                     console.log(`Dữ liệu ngày ${date} cho tất cả các tỉnh đã đầy đủ, dừng cào.`);
+                    isStopped = true;
                     clearInterval(intervalId);
                     const totalDuration = (Date.now() - startTime) / 1000;
                     const stats = await pidusage(process.pid);
@@ -469,9 +503,14 @@ async function scrapeXSMT(date, station) {
                         successCount,
                         errorCount,
                     });
-                    await page.close();
-                    await browser.close();
-                    await release();
+                    if (page && !page.isClosed()) await page.close();
+                    if (browser) await browser.close();
+                    if (release) await release();
+                    if (mongooseConnected) {
+                        await mongoose.connection.close();
+                        mongooseConnected = false;
+                        console.log('Đã đóng kết nối MongoDB');
+                    }
                     return;
                 }
 
@@ -484,42 +523,52 @@ async function scrapeXSMT(date, station) {
             }
         };
 
-        intervalId = setInterval(scrapeAndSave, 3000);
+        await scrapeAndSave();
+        if (!isStopped) {
+            intervalId = setInterval(scrapeAndSave, 3000);
+        }
 
         setTimeout(async () => {
-            clearInterval(intervalId);
-            console.log(`Dừng cào dữ liệu ngày ${date} sau 23 phút`);
-            const totalDuration = (Date.now() - startTime) / 1000;
-            const stats = await pidusage(process.pid);
-            console.log('Tổng hiệu suất scraper:', {
-                totalDuration: `${totalDuration.toFixed(2)}s`,
-                cpu: `${stats.cpu.toFixed(2)}%`,
-                memory: `${(stats.memory / 1024 / 1024).toFixed(2)}MB`,
-                totalIterations: iteration,
-                successCount,
-                errorCount,
-            });
-            if (page) await page.close();
-            if (browser) await browser.close();
-            if (release) await release();
+            if (!isStopped) {
+                isStopped = true;
+                clearInterval(intervalId);
+                console.log(`Dừng cào dữ liệu ngày ${date} sau 17 phút`);
+                const totalDuration = (Date.now() - startTime) / 1000;
+                const stats = await pidusage(process.pid);
+                console.log('Tổng hiệu suất scraper:', {
+                    totalDuration: `${totalDuration.toFixed(2)}s`,
+                    cpu: `${stats.cpu.toFixed(2)}%`,
+                    memory: `${(stats.memory / 1024 / 1024).toFixed(2)}MB`,
+                    totalIterations: iteration,
+                    successCount,
+                    errorCount,
+                });
+                if (page && !page.isClosed()) await page.close();
+                if (browser) await browser.close();
+                if (release) await release();
+                if (mongooseConnected) {
+                    await mongoose.connection.close();
+                    mongooseConnected = false;
+                    console.log('Đã đóng kết nối MongoDB');
+                }
+            }
         }, 17 * 60 * 1000);
 
     } catch (error) {
         console.error(`Lỗi khi khởi động scraper ngày ${date}:`, error.message);
-        if (page) await page.close();
+        isStopped = true;
+        if (page && !page.isClosed()) await page.close();
         if (browser) await browser.close();
         if (release) await release();
+        if (mongooseConnected) {
+            await mongoose.connection.close();
+            mongooseConnected = false;
+            console.log('Đã đóng kết nối MongoDB');
+        }
     }
 }
 
 module.exports = { scrapeXSMT };
-
-// Lên lịch chạy tự động lúc 16h45 hàng ngày
-schedule.scheduleJob('15 17 * * *', () => {
-    console.log('Bắt đầu cào dữ liệu XSMT...');
-    const today = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    scrapeXSMT(today, 'xsmt');
-});
 
 // Chạy thủ công nếu có tham số dòng lệnh
 const [, , date, station] = process.argv;
@@ -527,13 +576,17 @@ if (date && station) {
     console.log(`Chạy thủ công cho ngày ${date} và đài ${station}`);
     scrapeXSMT(date, station);
 } else {
-    console.log('Nếu muốn chạy thủ công, dùng lệnh: node xsmt_scraper.js 19/04/2025 xsmT');
+    console.log('Nếu muốn chạy thủ công, dùng lệnh: node xsmt_scraper.js 19/04/2025 xsmt');
 }
 
 // Đóng kết nối khi dừng chương trình
 process.on('SIGINT', async () => {
-    await mongoose.connection.close();
+    if (mongooseConnected) {
+        await mongoose.connection.close();
+        mongooseConnected = false;
+        console.log('Đã đóng kết nối MongoDB');
+    }
     await redisClient.quit();
-    console.log('Đã đóng kết nối MongoDB và Redis');
+    console.log('Đã đóng kết nối Redis');
     process.exit(0);
 });

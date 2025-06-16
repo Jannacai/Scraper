@@ -2,10 +2,10 @@ const express = require('express');
 const { scrapeXSMT } = require('../../../scraperMT');
 const router = express.Router();
 
-console.log('scrapeXSMT:', scrapeXSMT); // Debug require
+console.log('scrapeXSMT:....', scrapeXSMT); // Debug require
 
 // Endpoint để kích hoạt cào dữ liệu theo ngày
-router.post('/scrape', async (req, res) => {
+router.post('/scrapeMT', async (req, res) => {
     try {
         console.log('Received POST /api/scraperMT/xsmt/scrape:', req.body); // Debug request
         if (!req.body) {

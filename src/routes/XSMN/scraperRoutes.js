@@ -10,7 +10,7 @@ redisClient.connect().catch(err => console.error('Lỗi kết nối Redis:', err
 
 console.log('scrapeXSMN:', scrapeXSMN);
 
-router.post('/scrape', async (req, res) => {
+router.post('/scrapeMN', async (req, res) => {
     try {
         console.log('Received POST /api/scraperMN/scrape:', req.body);
         if (!req.body) {
