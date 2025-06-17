@@ -51,7 +51,6 @@ function isDataComplete(result, completedPrizes, stableCounts) {
     stableCounts.maDB = isValidMaDB ? (stableCounts.maDB || 0) + 1 : 0;
     completedPrizes.maDB = isValidMaDB && stableCounts.maDB >= 1;
 
-    checkPrize('specialPrize', result.specialPrize || [], 1);
     checkPrize('firstPrize', result.firstPrize || [], 1);
     checkPrize('secondPrize', result.secondPrize || [], 2);
     checkPrize('threePrizes', result.threePrizes || [], 6);
@@ -59,6 +58,7 @@ function isDataComplete(result, completedPrizes, stableCounts) {
     checkPrize('fivePrizes', result.fivePrizes || [], 6);
     checkPrize('sixPrizes', result.sixPrizes || [], 3);
     checkPrize('sevenPrizes', result.sevenPrizes || [], 4);
+    checkPrize('specialPrize', result.specialPrize || [], 1);
 
     const isComplete = completedPrizes.maDB && result.tentinh && result.tentinh.length >= 1 &&
         Object.keys(completedPrizes).every(k => completedPrizes[k]);
@@ -105,8 +105,6 @@ async function saveToMongoDB(result) {
         const existingResult = await XSMB.findOne({ drawDate: result.drawDate, station: result.station }).lean();
         if (existingResult) {
             const existingData = {
-                maDB: existingResult.maDB,
-                specialPrize: existingResult.specialPrize,
                 firstPrize: existingResult.firstPrize,
                 secondPrize: existingResult.secondPrize,
                 threePrizes: existingResult.threePrizes,
@@ -114,10 +112,10 @@ async function saveToMongoDB(result) {
                 fivePrizes: existingResult.fivePrizes,
                 sixPrizes: existingResult.sixPrizes,
                 sevenPrizes: existingResult.sevenPrizes,
+                maDB: existingResult.maDB,
+                specialPrize: existingResult.specialPrize,
             };
             const newData = {
-                maDB: result.maDB,
-                specialPrize: result.specialPrize,
                 firstPrize: result.firstPrize,
                 secondPrize: result.secondPrize,
                 threePrizes: result.threePrizes,
@@ -125,6 +123,8 @@ async function saveToMongoDB(result) {
                 fivePrizes: result.fivePrizes,
                 sixPrizes: result.sixPrizes,
                 sevenPrizes: result.sevenPrizes,
+                maDB: result.maDB,
+                specialPrize: result.specialPrize,
             };
             if (JSON.stringify(existingData) !== JSON.stringify(newData)) {
                 await XSMB.updateOne(
@@ -165,8 +165,6 @@ async function scrapeXSMB(date, station, isTestMode = false) {
     let errorCount = 0;
     const startTime = Date.now();
     const lastPrizeData = {
-        maDB: '...',
-        specialPrize: ['...'],
         firstPrize: ['...'],
         secondPrize: ['...', '...'],
         threePrizes: ['...', '...', '...', '...', '...', '...'],
@@ -174,10 +172,10 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         fivePrizes: ['...', '...', '...', '...', '...', '...'],
         sixPrizes: ['...', '...', '...'],
         sevenPrizes: ['...', '...', '...', '...'],
+        maDB: '...',
+        specialPrize: ['...'],
     };
     const completedPrizes = {
-        maDB: false,
-        specialPrize: false,
         firstPrize: false,
         secondPrize: false,
         threePrizes: false,
@@ -185,10 +183,10 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         fivePrizes: false,
         sixPrizes: false,
         sevenPrizes: false,
+        maDB: false,
+        specialPrize: false,
     };
     const stableCounts = {
-        maDB: 0,
-        specialPrize: 0,
         firstPrize: 0,
         secondPrize: 0,
         threePrizes: 0,
@@ -196,6 +194,8 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         fivePrizes: 0,
         sixPrizes: 0,
         sevenPrizes: 0,
+        maDB: 0,
+        specialPrize: 0,
     };
 
     try {
@@ -230,8 +230,6 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         }
 
         const selectors = {
-            maDB: `${dateHash} span[class*="v-madb"]:first-child`,
-            specialPrize: `${dateHash} span[class*="v-gdb"]`,
             firstPrize: `${dateHash} span[class*="v-g1"]`,
             secondPrize: `${dateHash} span[class*="v-g2-"]`,
             threePrizes: `${dateHash} span[class*="v-g3-"]`,
@@ -239,6 +237,8 @@ async function scrapeXSMB(date, station, isTestMode = false) {
             fivePrizes: `${dateHash} span[class*="v-g5-"]`,
             sixPrizes: `${dateHash} span[class*="v-g6-"]`,
             sevenPrizes: `${dateHash} span[class*="v-g7-"]`,
+            maDB: `${dateHash} span[class*="v-madb"]:first-child`,
+            specialPrize: `${dateHash} span[class*="v-gdb"]`,
         };
 
         const scrapeAndSave = async () => {
@@ -327,7 +327,6 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     maDB: result.maDB || lastPrizeData.maDB,
                     tentinh,
                     tinh,
-                    specialPrize: Array.isArray(result.specialPrize) && result.specialPrize.length ? result.specialPrize : lastPrizeData.specialPrize,
                     firstPrize: Array.isArray(result.firstPrize) && result.firstPrize.length ? result.firstPrize : lastPrizeData.firstPrize,
                     secondPrize: Array.isArray(result.secondPrize) && result.secondPrize.length ? result.secondPrize : lastPrizeData.secondPrize,
                     threePrizes: Array.isArray(result.threePrizes) && result.threePrizes.length ? result.threePrizes : lastPrizeData.threePrizes,
@@ -335,13 +334,12 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     fivePrizes: Array.isArray(result.fivePrizes) && result.fivePrizes.length ? result.fivePrizes : lastPrizeData.fivePrizes,
                     sixPrizes: Array.isArray(result.sixPrizes) && result.sixPrizes.length ? result.sixPrizes : lastPrizeData.sixPrizes,
                     sevenPrizes: Array.isArray(result.sevenPrizes) && result.sevenPrizes.length ? result.sevenPrizes : lastPrizeData.sevenPrizes,
+                    specialPrize: Array.isArray(result.specialPrize) && result.specialPrize.length ? result.specialPrize : lastPrizeData.specialPrize,
                     station,
                     createdAt: new Date(),
                 };
 
                 const prizeTypes = [
-                    { key: 'maDB', data: formattedResult.maDB, isArray: false, minLength: 1 },
-                    { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true, minLength: 1 },
                     { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true, minLength: 1 },
                     { key: 'secondPrize', data: formattedResult.secondPrize, isArray: true, minLength: 2 },
                     { key: 'threePrizes', data: formattedResult.threePrizes, isArray: true, minLength: 6 },
@@ -349,6 +347,8 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true, minLength: 6 },
                     { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true, minLength: 3 },
                     { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true, minLength: 4 },
+                    { key: 'maDB', data: formattedResult.maDB, isArray: false, minLength: 1 },
+                    { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true, minLength: 1 },
                 ];
 
                 const changes = [];
@@ -374,8 +374,6 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     await publishToRedis(changes, formattedResult);
                 }
 
-                formattedResult.maDB = lastPrizeData.maDB;
-                formattedResult.specialPrize = lastPrizeData.specialPrize;
                 formattedResult.firstPrize = lastPrizeData.firstPrize;
                 formattedResult.secondPrize = lastPrizeData.secondPrize;
                 formattedResult.threePrizes = lastPrizeData.threePrizes;
@@ -383,6 +381,8 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                 formattedResult.fivePrizes = lastPrizeData.fivePrizes;
                 formattedResult.sixPrizes = lastPrizeData.sixPrizes;
                 formattedResult.sevenPrizes = lastPrizeData.sevenPrizes;
+                formattedResult.maDB = lastPrizeData.maDB;
+                formattedResult.specialPrize = lastPrizeData.specialPrize;
 
                 if (isDataComplete(formattedResult, completedPrizes, stableCounts)) {
                     console.log(`Dữ liệu ngày ${date} cho ${station} đã đầy đủ, dừng cào.`);
