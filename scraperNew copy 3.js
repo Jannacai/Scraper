@@ -75,9 +75,9 @@ async function publishToRedis(changes, additionalData) {
             await redisClient.connect();
         }
         const pipeline = redisClient.multi();
-        for (const { key, data, status } of changes) {
-            pipeline.publish(`xsmb:${today}`, JSON.stringify({ prizeType: key, prizeData: data, status, drawDate: today, tentinh, tinh, year, month }));
-            pipeline.hSet(`kqxs:${today}`, key, JSON.stringify({ data, status }));
+        for (const { key, data } of changes) {
+            pipeline.publish(`xsmb:${today}`, JSON.stringify({ prizeType: key, prizeData: data, drawDate: today, tentinh, tinh, year, month }));
+            pipeline.hSet(`kqxs:${today}`, key, JSON.stringify(data));
         }
         pipeline.hSet(`kqxs:${today}:meta`, 'metadata', JSON.stringify({ tentinh, tinh, year, month }));
         await pipeline.exec();
@@ -206,8 +206,8 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         }
         const formattedDate = date.replace(/\//g, '-');
 
-        const isLiveWindow = new Date().getHours() === 18 && new Date().getMinutes() >= 13 && new Date().getMinutes() <= 31;
-        const intervalMs = isTestMode || isLiveWindow ? 2000 : 10000;
+        const isLiveWindow = new Date().getHours() === 18 && new Date().getMinutes() >= 13 && new Date().getMinutes() <= 32;
+        const intervalMs = isTestMode || isLiveWindow ? 2000 : 2000;
         console.log(`intervalMs: ${intervalMs}ms (isLiveWindow: ${isLiveWindow}, isTestMode: ${isTestMode})`);
 
         await connectMongoDB();
@@ -269,14 +269,9 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     const getPrizes = (selector) => {
                         try {
                             const elements = document.querySelectorAll(selector);
-                            return Array.from(elements).map(elem => {
-                                const outputDivs = elem.querySelectorAll('div.output');
-                                if (outputDivs.length > 0) {
-                                    return { value: '...', status: 'animating' };
-                                }
-                                const prize = elem.textContent.trim();
-                                return { value: prize, status: prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize) ? 'complete' : '...' };
-                            }).filter(item => item.value && item.value !== '...' && item.value !== '****');
+                            return Array.from(elements)
+                                .map(elem => elem.getAttribute('data-id')?.trim() || '')
+                                .filter(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
                         } catch (error) {
                             console.error(`Lỗi lấy selector ${selector}:`, error.message);
                             return [];
@@ -287,12 +282,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     for (const prizeType of prizeOrder) {
                         if (prizeType === 'maDB') {
                             const maDBElement = document.querySelector(selectors.maDB);
-                            if (maDBElement) {
-                                const outputDivs = maDBElement.querySelectorAll('div.output');
-                                result.maDB = outputDivs.length > 0 ? { value: '...', status: 'animating' } : { value: maDBElement.textContent.trim(), status: maDBElement.textContent.trim() !== '...' ? 'complete' : '...' };
-                            } else {
-                                result.maDB = { value: '...', status: '...' };
-                            }
+                            result.maDB = maDBElement ? maDBElement.textContent.trim() : '...';
                         } else {
                             result[prizeType] = getPrizes(selectors[prizeType]) || [];
                         }
@@ -322,55 +312,49 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     year: dateObj.getFullYear(),
                     month: dateObj.getMonth() + 1,
                     dayOfWeek,
-                    maDB: result.maDB.value || lastPrizeData.maDB,
+                    maDB: result.maDB || lastPrizeData.maDB,
                     tentinh,
                     tinh,
-                    specialPrize: Array.isArray(result.specialPrize) && result.specialPrize.length ? result.specialPrize.map(item => item.value) : lastPrizeData.specialPrize,
-                    firstPrize: Array.isArray(result.firstPrize) && result.firstPrize.length ? result.firstPrize.map(item => item.value) : lastPrizeData.firstPrize,
-                    secondPrize: Array.isArray(result.secondPrize) && result.secondPrize.length ? result.secondPrize.map(item => item.value) : lastPrizeData.secondPrize,
-                    threePrizes: Array.isArray(result.threePrizes) && result.threePrizes.length ? result.threePrizes.map(item => item.value) : lastPrizeData.threePrizes,
-                    fourPrizes: Array.isArray(result.fourPrizes) && result.fourPrizes.length ? result.fourPrizes.map(item => item.value) : lastPrizeData.fourPrizes,
-                    fivePrizes: Array.isArray(result.fivePrizes) && result.fivePrizes.length ? result.fivePrizes.map(item => item.value) : lastPrizeData.fivePrizes,
-                    sixPrizes: Array.isArray(result.sixPrizes) && result.sixPrizes.length ? result.sixPrizes.map(item => item.value) : lastPrizeData.sixPrizes,
-                    sevenPrizes: Array.isArray(result.sevenPrizes) && result.sevenPrizes.length ? result.sevenPrizes.map(item => item.value) : lastPrizeData.sevenPrizes,
+                    specialPrize: Array.isArray(result.specialPrize) && result.specialPrize.length ? result.specialPrize : lastPrizeData.specialPrize,
+                    firstPrize: Array.isArray(result.firstPrize) && result.firstPrize.length ? result.firstPrize : lastPrizeData.firstPrize,
+                    secondPrize: Array.isArray(result.secondPrize) && result.secondPrize.length ? result.secondPrize : lastPrizeData.secondPrize,
+                    threePrizes: Array.isArray(result.threePrizes) && result.threePrizes.length ? result.threePrizes : lastPrizeData.threePrizes,
+                    fourPrizes: Array.isArray(result.fourPrizes) && result.fourPrizes.length ? result.fourPrizes : lastPrizeData.fourPrizes,
+                    fivePrizes: Array.isArray(result.fivePrizes) && result.fivePrizes.length ? result.fivePrizes : lastPrizeData.fivePrizes,
+                    sixPrizes: Array.isArray(result.sixPrizes) && result.sixPrizes.length ? result.sixPrizes : lastPrizeData.sixPrizes,
+                    sevenPrizes: Array.isArray(result.sevenPrizes) && result.sevenPrizes.length ? result.sevenPrizes : lastPrizeData.sevenPrizes,
                     station,
                     createdAt: new Date(),
                 };
 
                 const prizeTypes = [
-                    { key: 'maDB', data: result.maDB.value, status: result.maDB.status, isArray: false, minLength: 1 },
-                    { key: 'specialPrize', data: result.specialPrize.map(item => item.value), status: result.specialPrize[0]?.status || '...', isArray: true, minLength: 1 },
-                    { key: 'firstPrize', data: result.firstPrize.map(item => item.value), status: result.firstPrize[0]?.status || '...', isArray: true, minLength: 1 },
-                    { key: 'secondPrize', data: result.secondPrize.map(item => item.value), status: result.secondPrize[0]?.status || '...', isArray: true, minLength: 2 },
-                    { key: 'threePrizes', data: result.threePrizes.map(item => item.value), status: result.threePrizes[0]?.status || '...', isArray: true, minLength: 6 },
-                    { key: 'fourPrizes', data: result.fourPrizes.map(item => item.value), status: result.fourPrizes[0]?.status || '...', isArray: true, minLength: 4 },
-                    { key: 'fivePrizes', data: result.fivePrizes.map(item => item.value), status: result.fivePrizes[0]?.status || '...', isArray: true, minLength: 6 },
-                    { key: 'sixPrizes', data: result.sixPrizes.map(item => item.value), status: result.sixPrizes[0]?.status || '...', isArray: true, minLength: 3 },
-                    { key: 'sevenPrizes', data: result.sevenPrizes.map(item => item.value), status: result.sevenPrizes[0]?.status || '...', isArray: true, minLength: 4 },
+                    { key: 'maDB', data: formattedResult.maDB, isArray: false, minLength: 1 },
+                    { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true, minLength: 1 },
+                    { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true, minLength: 1 },
+                    { key: 'secondPrize', data: formattedResult.secondPrize, isArray: true, minLength: 2 },
+                    { key: 'threePrizes', data: formattedResult.threePrizes, isArray: true, minLength: 6 },
+                    { key: 'fourPrizes', data: formattedResult.fourPrizes, isArray: true, minLength: 4 },
+                    { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true, minLength: 6 },
+                    { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true, minLength: 3 },
+                    { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true, minLength: 4 },
                 ];
 
                 const changes = [];
-                for (const { key, data, status, isArray, minLength } of prizeTypes) {
+                for (const { key, data, isArray, minLength } of prizeTypes) {
                     if (isArray) {
                         if (!Array.isArray(data)) {
                             console.warn(`Dữ liệu ${key} không phải mảng, bỏ qua`);
                             continue;
                         }
                         for (const [index, prize] of data.entries()) {
-                            if (prize && prize !== '...' && prize !== '****' && prize !== lastPrizeData[key][index]) {
-                                changes.push({ key: `${key}_${index}`, data: prize, status: status });
+                            if (prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize) && prize !== lastPrizeData[key][index]) {
+                                changes.push({ key: `${key}_${index}`, data: prize });
                                 lastPrizeData[key][index] = prize;
-                            } else if (status === 'animating' && lastPrizeData[key][index] !== '...') {
-                                changes.push({ key: `${key}_${index}`, data: '...', status: 'animating' });
-                                lastPrizeData[key][index] = '...';
                             }
                         }
                     } else if (data && data !== '...' && data !== '' && data !== lastPrizeData[key]) {
-                        changes.push({ key, data, status });
+                        changes.push({ key, data });
                         lastPrizeData[key] = data;
-                    } else if (status === 'animating' && lastPrizeData[key] !== '...') {
-                        changes.push({ key, data: '...', status: 'animating' });
-                        lastPrizeData[key] = '...';
                     }
                 }
 
@@ -494,3 +478,4 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis');
     process.exit(0);
 });
+// hàm này ok chưa sửa phần thứ tự cào. hàm của ngày 17/06
