@@ -1,9 +1,9 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const compression = require('compression');
+const { connectMongoDB, closeMongoDB } = require('./db');
 require('dotenv').config();
 const routes = require('./src/routes/index');
 const app = express();
@@ -17,12 +17,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Kết nối MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-    maxPoolSize: 10,
-    minPoolSize: 2,
-})
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.error('MongoDB connection error:', err));
+connectMongoDB().catch(err => {
+    console.error('MongoDB connection error:', err);
+    process.exit(1);
+});
 
 routes(app);
 app.use((req, res) => {
@@ -37,5 +35,11 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-    console.log(`Scraper API running on pot ${PORT}`);
+    console.log(`Scraper API running on port ${PORT}`);
+});
+
+// Đóng kết nối khi server dừng
+process.on('SIGINT', async () => {
+    await closeMongoDB();
+    process.exit(0);
 });

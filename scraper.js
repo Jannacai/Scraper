@@ -2,31 +2,14 @@ const puppeteer = require('puppeteer');
 const mongoose = require('mongoose');
 const redis = require('redis');
 const pidusage = require('pidusage');
+const { connectMongoDB, isConnected } = require('./db');
 require('dotenv').config();
 
 process.env.TZ = 'Asia/Ho_Chi_Minh';
 
 const XSMB = require('./src/models/XS_MB.models');
 
-let mongooseConnected = false;
-async function connectMongoDB() {
-    if (mongooseConnected || mongoose.connection.readyState === 1) {
-        console.log('MongoDB already connected');
-        return;
-    }
-    try {
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/xsmb', {
-            maxPoolSize: 5,
-            minPoolSize: 1,
-        });
-        mongooseConnected = true;
-        console.log('Đã kết nối MongoDB');
-    } catch (err) {
-        console.error('Lỗi kết nối MongoDB:', err.message);
-        throw err;
-    }
-}
-
+// Kết nối Redis
 const redisClient = redis.createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
 });
@@ -102,6 +85,9 @@ async function setRedisExpiration(today) {
 
 async function saveToMongoDB(result) {
     try {
+        if (!isConnected()) {
+            await connectMongoDB();
+        }
         const existingResult = await XSMB.findOne({ drawDate: result.drawDate, station: result.station }).lean();
         if (existingResult) {
             const existingData = {
@@ -404,11 +390,6 @@ async function scrapeXSMB(date, station, isTestMode = false) {
 
                     if (page && !page.isClosed()) await page.close();
                     if (browser) await browser.close();
-                    if (mongooseConnected) {
-                        await mongoose.connection.close();
-                        mongooseConnected = false;
-                        console.log('Đã đóng kết nối MongoDB');
-                    }
                     return;
                 }
 
@@ -447,11 +428,6 @@ async function scrapeXSMB(date, station, isTestMode = false) {
 
                 if (page && !page.isClosed()) await page.close();
                 if (browser) await browser.close();
-                if (mongooseConnected) {
-                    await mongoose.connection.close();
-                    mongooseConnected = false;
-                    console.log('Đã đóng kết nối MongoDB');
-                }
             }
         }, 17 * 60 * 1000);
 
@@ -461,11 +437,6 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         await setRedisExpiration(formatDateToDDMMYYYY(dateObj || new Date()));
         if (page && !page.isClosed()) await page.close();
         if (browser) await browser.close();
-        if (mongooseConnected) {
-            await mongoose.connection.close();
-            mongooseConnected = false;
-            console.log('Đã đóng kết nối MongoDB');
-        }
     }
 }
 
@@ -481,12 +452,7 @@ if (date && station) {
 }
 
 process.on('SIGINT', async () => {
-    if (mongooseConnected) {
-        await mongoose.connection.close();
-        mongooseConnected = false;
-        console.log('Đã đóng kết nối MongoDB');
-    }
     await redisClient.quit();
-    console.log('Đã đóng kết nối Redis');
+    console.log('Đã đóng kết nối Redis MIỀN BẮC');
     process.exit(0);
 });

@@ -5,26 +5,10 @@ const { lock } = require('proper-lockfile');
 const fs = require('fs');
 const path = require('path');
 const pidusage = require('pidusage');
+const { connectMongoDB, isConnected } = require('./db');
 require('dotenv').config();
 
 const XSMT = require('./src/models/XS_MT.models');
-
-// Kết nối MongoDB
-let mongooseConnected = false;
-async function connectMongoDB() {
-    if (mongooseConnected || mongoose.connection.readyState === 1) return;
-    try {
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/xsmt', {
-            maxPoolSize: 5,
-            minPoolSize: 1,
-        });
-        mongooseConnected = true;
-        console.log('Đã kết nối MongoDB');
-    } catch (err) {
-        console.error('Lỗi kết nối MongoDB:', err.message);
-        throw err;
-    }
-}
 
 // Kết nối Redis
 const redisClient = redis.createClient({
@@ -163,7 +147,7 @@ async function publishToRedis(changes, additionalData) {
 // Lưu dữ liệu vào MongoDB
 async function saveToMongoDB(result) {
     try {
-        if (!mongooseConnected || mongoose.connection.readyState !== 1) {
+        if (!isConnected()) {
             await connectMongoDB();
         }
         const dateObj = new Date(result.drawDate);
@@ -585,12 +569,6 @@ async function scrapeXSMT(date, station) {
         if (page && !page.isClosed()) await page.close();
         if (browser) await browser.close();
         if (release) await release();
-    } finally {
-        if (mongooseConnected) {
-            await mongoose.connection.close();
-            mongooseConnected = false;
-            console.log('Đã đóng kết nối MongoDB');
-        }
     }
 }
 
@@ -607,11 +585,6 @@ if (date && station) {
 
 // Đóng kết nối khi dừng
 process.on('SIGINT', async () => {
-    if (mongooseConnected) {
-        await mongoose.connection.close();
-        mongooseConnected = false;
-        console.log('Đã đóng kết nối MongoDB');
-    }
     await redisClient.quit();
     console.log('Đã đóng kết nối Redis');
     process.exit(0);
