@@ -79,15 +79,15 @@ function formatDateToDDMMYYYY(date) {
 // Log chi tiết dữ liệu
 function logDataDetails(result) {
     const expectedCounts = [
-        { key: 'eightPrizes', actual: result.eightPrizes?.length || 0, expected: 1 },
-        { key: 'sevenPrizes', actual: result.sevenPrizes?.length || 0, expected: 1 },
-        { key: 'sixPrizes', actual: result.sixPrizes?.length || 0, expected: 3 },
-        { key: 'fivePrizes', actual: result.fivePrizes?.length || 0, expected: 1 },
-        { key: 'fourPrizes', actual: result.fourPrizes?.length || 0, expected: 7 },
-        { key: 'threePrizes', actual: result.threePrizes?.length || 0, expected: 2 },
-        { key: 'secondPrize', actual: result.secondPrize?.length || 0, expected: 1 },
-        { key: 'firstPrize', actual: result.firstPrize?.length || 0, expected: 1 },
         { key: 'specialPrize', actual: result.specialPrize?.length || 0, expected: 1 },
+        { key: 'firstPrize', actual: result.firstPrize?.length || 0, expected: 1 },
+        { key: 'secondPrize', actual: result.secondPrize?.length || 0, expected: 1 },
+        { key: 'threePrizes', actual: result.threePrizes?.length || 0, expected: 2 },
+        { key: 'fourPrizes', actual: result.fourPrizes?.length || 0, expected: 7 },
+        { key: 'fivePrizes', actual: result.fivePrizes?.length || 0, expected: 1 },
+        { key: 'sixPrizes', actual: result.sixPrizes?.length || 0, expected: 3 },
+        { key: 'sevenPrizes', actual: result.sevenPrizes?.length || 0, expected: 1 },
+        { key: 'eightPrizes', actual: result.eightPrizes?.length || 0, expected: 1 },
     ];
 
     console.log(`Chi tiết dữ liệu cho tỉnh ${result.tentinh}:`);
@@ -105,15 +105,15 @@ function isDataComplete(result, completedPrizes, stableCounts) {
         return isValid;
     };
 
-    checkPrize('eightPrizes', result.eightPrizes, 1);
-    checkPrize('sevenPrizes', result.sevenPrizes, 1);
-    checkPrize('sixPrizes', result.sixPrizes, 3);
-    checkPrize('fivePrizes', result.fivePrizes, 1);
-    checkPrize('fourPrizes', result.fourPrizes, 7);
-    checkPrize('threePrizes', result.threePrizes, 2);
-    checkPrize('secondPrize', result.secondPrize, 1);
-    checkPrize('firstPrize', result.firstPrize, 1);
     checkPrize('specialPrize', result.specialPrize, 1);
+    checkPrize('firstPrize', result.firstPrize, 1);
+    checkPrize('secondPrize', result.secondPrize, 1);
+    checkPrize('threePrizes', result.threePrizes, 2);
+    checkPrize('fourPrizes', result.fourPrizes, 7);
+    checkPrize('fivePrizes', result.fivePrizes, 1);
+    checkPrize('sixPrizes', result.sixPrizes, 3);
+    checkPrize('sevenPrizes', result.sevenPrizes, 1);
+    checkPrize('eightPrizes', result.eightPrizes, 1);
 
     return result.tentinh && result.tentinh.length >= 1 && !result.tentinh.startsWith('Tỉnh_') &&
         Object.keys(completedPrizes).every(k => completedPrizes[k]);
@@ -124,15 +124,15 @@ function hasAnyData(result) {
     return (
         result.tentinh && result.tentinh.length >= 1 && !result.tentinh.startsWith('Tỉnh_') &&
         (
-            (result.eightPrizes && result.eightPrizes.length >= 1 && result.eightPrizes.every(p => p && p !== '...')) ||
-            (result.sevenPrizes && result.sevenPrizes.length >= 1 && result.sevenPrizes.every(p => p && p !== '...')) ||
-            (result.sixPrizes && result.sixPrizes.length >= 1 && result.sixPrizes.every(p => p && p !== '...')) ||
-            (result.fivePrizes && result.fivePrizes.length >= 1 && result.fivePrizes.every(p => p && p !== '...')) ||
-            (result.fourPrizes && result.fourPrizes.length >= 1 && result.fourPrizes.every(p => p && p !== '...')) ||
-            (result.threePrizes && result.threePrizes.length >= 1 && result.threePrizes.every(p => p && p !== '...')) ||
-            (result.secondPrize && result.secondPrize.length >= 1 && result.secondPrize.every(p => p && p !== '...')) ||
+            (result.specialPrize && result.specialPrize.length >= 1 && result.specialPrize.every(p => p && p !== '...')) ||
             (result.firstPrize && result.firstPrize.length >= 1 && result.firstPrize.every(p => p && p !== '...')) ||
-            (result.specialPrize && result.specialPrize.length >= 1 && result.specialPrize.every(p => p && p !== '...'))
+            (result.secondPrize && result.secondPrize.length >= 1 && result.secondPrize.every(p => p && p !== '...')) ||
+            (result.threePrizes && result.threePrizes.length >= 1 && result.threePrizes.every(p => p && p !== '...')) ||
+            (result.fourPrizes && result.fourPrizes.length >= 1 && result.fourPrizes.every(p => p && p !== '...')) ||
+            (result.fivePrizes && result.fivePrizes.length >= 1 && result.fivePrizes.every(p => p && p !== '...')) ||
+            (result.sixPrizes && result.sixPrizes.length >= 1 && result.sixPrizes.every(p => p && p !== '...')) ||
+            (result.sevenPrizes && result.sevenPrizes.length >= 1 && result.sevenPrizes.every(p => p && p !== '...')) ||
+            (result.eightPrizes && result.eightPrizes.length >= 1 && result.eightPrizes.every(p => p && p !== '...'))
         )
     );
 }
@@ -163,32 +163,35 @@ async function publishToRedis(changes, additionalData) {
 // Lưu dữ liệu vào MongoDB
 async function saveToMongoDB(result) {
     try {
+        if (!mongooseConnected || mongoose.connection.readyState !== 1) {
+            await connectMongoDB();
+        }
         const dateObj = new Date(result.drawDate);
         const existingResult = await XSMT.findOne({ drawDate: dateObj, station: result.station, tentinh: result.tentinh }).lean();
 
         if (existingResult) {
             const existingData = {
-                eightPrizes: existingResult.eightPrizes,
-                sevenPrizes: existingResult.sevenPrizes,
-                sixPrizes: existingResult.sixPrizes,
-                fivePrizes: existingResult.fivePrizes,
-                fourPrizes: existingResult.fourPrizes,
-                threePrizes: existingResult.threePrizes,
-                secondPrize: existingResult.secondPrize,
-                firstPrize: existingResult.firstPrize,
                 specialPrize: existingResult.specialPrize,
+                firstPrize: existingResult.firstPrize,
+                secondPrize: existingResult.secondPrize,
+                threePrizes: existingResult.threePrizes,
+                fourPrizes: existingResult.fourPrizes,
+                fivePrizes: existingResult.fivePrizes,
+                sixPrizes: existingResult.sixPrizes,
+                sevenPrizes: existingResult.sevenPrizes,
+                eightPrizes: existingResult.eightPrizes,
             };
 
             const newData = {
-                eightPrizes: result.eightPrizes,
-                sevenPrizes: result.sevenPrizes,
-                sixPrizes: result.sixPrizes,
-                fivePrizes: result.fivePrizes,
-                fourPrizes: result.fourPrizes,
-                threePrizes: result.threePrizes,
-                secondPrize: result.secondPrize,
-                firstPrize: result.firstPrize,
                 specialPrize: result.specialPrize,
+                firstPrize: result.firstPrize,
+                secondPrize: result.secondPrize,
+                threePrizes: result.threePrizes,
+                fourPrizes: result.fourPrizes,
+                fivePrizes: result.fivePrizes,
+                sixPrizes: result.sixPrizes,
+                sevenPrizes: result.sevenPrizes,
+                eightPrizes: result.eightPrizes,
             };
 
             if (JSON.stringify(existingData) !== JSON.stringify(newData)) {
@@ -211,11 +214,11 @@ async function saveToMongoDB(result) {
 }
 
 // Log hiệu suất
-async function logPerformance(startTime, iteration, success, province) {
+async function logPerformance(startTime, iteration, success) {
     if (iteration % 10 === 0 || !success) {
         const stats = await pidusage(process.pid);
         const duration = (Date.now() - startTime) / 1000;
-        console.log(`Lần cào ${iteration} cho tỉnh ${province} (${success ? 'Thành công' : 'Thất bại'}):`, {
+        console.log(`Lần cào ${iteration} (${success ? 'Thành công' : 'Thất bại'}):`, {
             duration: `${duration.toFixed(2)}s`,
             cpu: `${stats.cpu.toFixed(2)}%`,
             memory: `${(stats.memory / 1024 / 1024).toFixed(2)}MB`,
@@ -236,6 +239,20 @@ async function scrapeXSMT(date, station) {
     const startTime = Date.now();
     const lastPrizeDataByProvince = {};
 
+    const createNewPage = async () => {
+        if (page && !page.isClosed()) await page.close();
+        page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124');
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+    };
+
     try {
         const dateParts = date.split('/');
         const dateObj = new Date(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
@@ -254,23 +271,10 @@ async function scrapeXSMT(date, station) {
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             executablePath: process.env.CHROMIUM_PATH || undefined,
         });
-        page = await browser.newPage();
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124');
-        await page.setRequestInterception(true);
-        page.on('request', (req) => {
-            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
-                req.abort();
-            } else {
-                req.continue();
-            }
-        });
-        page.on('framenavigated', () => {
-            console.log('Page navigated, stopping scraper...');
-            isStopped = true;
-        });
+        await createNewPage();
 
         let baseUrl;
-        if (station.toLowerCase() === 'xsmt') {
+        if (station.toString().toLowerCase().trim() === 'xsmt') {
             baseUrl = `https://xosovn.com/xsmt-${formattedDate}`;
             console.log(`Đang cào dữ liệu từ: ${baseUrl}`);
         } else {
@@ -278,19 +282,19 @@ async function scrapeXSMT(date, station) {
         }
 
         const selectors = {
-            eightPrizes: 'span[class*="v-g8"]',
-            sevenPrizes: 'span[class*="v-g7"]',
-            sixPrizes: 'span[class*="v-g6-"]',
-            fivePrizes: 'span[class*="v-g5"]',
-            fourPrizes: 'span[class*="v-g4-"]',
-            threePrizes: 'span[class*="v-g3-"]',
-            secondPrize: 'span[class*="v-g2"]',
-            firstPrize: 'span[class*="v-g1"]',
             specialPrize: 'span[class*="v-gdb"]',
+            firstPrize: 'span[class*="v-g1"]',
+            secondPrize: 'span[class*="v-g2"]',
+            threePrizes: 'span[class*="v-g3-"]',
+            fourPrizes: 'span[class*="v-g4-"]',
+            fivePrizes: 'span[class*="v-g5"]',
+            sixPrizes: 'span[class*="v-g6-"]',
+            sevenPrizes: 'span[class*="v-g7"]',
+            eightPrizes: 'span[class*="v-g8"]',
         };
 
         const scrapeAndSave = async () => {
-            if (isStopped || (page && page.isClosed())) {
+            if (isStopped) {
                 clearInterval(intervalId);
                 return;
             }
@@ -300,32 +304,30 @@ async function scrapeXSMT(date, station) {
             console.log(`Bắt đầu lần cào ${iteration}`);
 
             try {
-                const isLiveWindow = new Date().getHours() === 17 && new Date().getMinutes() >= 10 && new Date().getMinutes() <= 33;
-                const intervalMs = isLiveWindow ? 2000 : 10000;
+                const isLiveWindow = new Date().getHours() === 17 && new Date().getMinutes() >= 13 && new Date().getMinutes() <= 33;
+                const intervalMs = isLiveWindow ? 2000 : 2000;
+                console.log(`intervalMs: ${intervalMs}ms (isLiveWindow: ${isLiveWindow})`);
 
                 if (page.isClosed()) {
-                    page = await browser.newPage();
-                    await page.setRequestInterception(true);
-                    page.on('request', (req) => {
-                        if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
-                            req.abort();
-                        } else {
-                            req.continue();
-                        }
-                    });
-                    page.on('framenavigated', () => {
-                        isStopped = true;
-                    });
+                    await createNewPage();
                 }
 
-                const response = await page.goto(baseUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-                if (response.status() >= 400) {
-                    throw new Error(`Lỗi HTTP ${response.status()}`);
+                let attempt = 0;
+                const maxAttempts = 3;
+                let response;
+                while (attempt < maxAttempts) {
+                    try {
+                        response = await page.goto(baseUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+                        if (response.status() >= 400) {
+                            throw new Error(`Lỗi HTTP ${response.status()}`);
+                        }
+                        break;
+                    } catch (error) {
+                        attempt++;
+                        if (attempt === maxAttempts) throw error;
+                        await createNewPage();
+                    }
                 }
-                await page.waitForFunction(
-                    () => document.querySelectorAll('span[class*="v-gdb"]').length > 0 && Array.from(document.querySelectorAll('span[class*="v-gdb"]')).some(span => span.getAttribute('data-id')?.trim()),
-                    { timeout: 30000 }
-                );
 
                 const result = await page.evaluate(({ selectors }) => {
                     const getPrizes = (selector) => {
@@ -354,15 +356,15 @@ async function scrapeXSMT(date, station) {
                     const provincesData = {};
                     provinces.forEach(province => {
                         provincesData[province] = {
-                            eightPrizes: [],
-                            sevenPrizes: [],
-                            sixPrizes: [],
-                            fivePrizes: [],
-                            fourPrizes: [],
-                            threePrizes: [],
-                            secondPrize: [],
-                            firstPrize: [],
                             specialPrize: [],
+                            firstPrize: [],
+                            secondPrize: [],
+                            threePrizes: [],
+                            fourPrizes: [],
+                            fivePrizes: [],
+                            sixPrizes: [],
+                            sevenPrizes: [],
+                            eightPrizes: [],
                         };
                     });
 
@@ -393,45 +395,47 @@ async function scrapeXSMT(date, station) {
                 }, { selectors });
 
                 if (result.provinces.length === 0) {
-                    await logPerformance(iterationStart, iteration, false, 'N/A');
+                    await logPerformance(iterationStart, iteration, false);
                     errorCount += 1;
+                    clearInterval(intervalId);
+                    intervalId = setInterval(scrapeAndSave, intervalMs);
                     return;
                 }
 
                 result.provinces.forEach(province => {
                     if (!lastPrizeDataByProvince[province]) {
                         lastPrizeDataByProvince[province] = {
-                            eightPrizes: ['...'],
-                            sevenPrizes: ['...'],
-                            sixPrizes: ['...', '...', '...'],
-                            fivePrizes: ['...'],
-                            fourPrizes: ['...', '...', '...', '...', '...', '...', '...'],
-                            threePrizes: ['...', '...'],
-                            secondPrize: ['...'],
-                            firstPrize: ['...'],
                             specialPrize: ['...'],
+                            firstPrize: ['...'],
+                            secondPrize: ['...'],
+                            threePrizes: ['...', '...'],
+                            fourPrizes: ['...', '...', '...', '...', '...', '...', '...'],
+                            fivePrizes: ['...'],
+                            sixPrizes: ['...', '...', '...'],
+                            sevenPrizes: ['...'],
+                            eightPrizes: ['...'],
                         };
                         lastPrizeDataByProvince[province].completedPrizes = {
-                            eightPrizes: false,
-                            sevenPrizes: false,
-                            sixPrizes: false,
-                            fivePrizes: false,
-                            fourPrizes: false,
-                            threePrizes: false,
-                            secondPrize: false,
-                            firstPrize: false,
                             specialPrize: false,
+                            firstPrize: false,
+                            secondPrize: false,
+                            threePrizes: false,
+                            fourPrizes: false,
+                            fivePrizes: false,
+                            sixPrizes: false,
+                            sevenPrizes: false,
+                            eightPrizes: false,
                         };
                         lastPrizeDataByProvince[province].stableCounts = {
-                            eightPrizes: 0,
-                            sevenPrizes: 0,
-                            sixPrizes: 0,
-                            fivePrizes: 0,
-                            fourPrizes: 0,
-                            threePrizes: 0,
-                            secondPrize: 0,
-                            firstPrize: 0,
                             specialPrize: 0,
+                            firstPrize: 0,
+                            secondPrize: 0,
+                            threePrizes: 0,
+                            fourPrizes: 0,
+                            fivePrizes: 0,
+                            sixPrizes: 0,
+                            sevenPrizes: 0,
+                            eightPrizes: 0,
                         };
                     }
                 });
@@ -455,15 +459,15 @@ async function scrapeXSMT(date, station) {
                         dayOfWeek,
                         tentinh,
                         tinh,
-                        eightPrizes: result.provincesData[tentinh]?.eightPrizes.length ? result.provincesData[tentinh].eightPrizes : lastPrizeDataByProvince[tentinh].eightPrizes,
-                        sevenPrizes: result.provincesData[tentinh]?.sevenPrizes.length ? result.provincesData[tentinh].sevenPrizes : lastPrizeDataByProvince[tentinh].sevenPrizes,
-                        sixPrizes: result.provincesData[tentinh]?.sixPrizes.length ? result.provincesData[tentinh].sixPrizes : lastPrizeDataByProvince[tentinh].sixPrizes,
-                        fivePrizes: result.provincesData[tentinh]?.fivePrizes.length ? result.provincesData[tentinh].fivePrizes : lastPrizeDataByProvince[tentinh].fivePrizes,
-                        fourPrizes: result.provincesData[tentinh]?.fourPrizes.length ? result.provincesData[tentinh].fourPrizes : lastPrizeDataByProvince[tentinh].fourPrizes,
-                        threePrizes: result.provincesData[tentinh]?.threePrizes.length ? result.provincesData[tentinh].threePrizes : lastPrizeDataByProvince[tentinh].threePrizes,
-                        secondPrize: result.provincesData[tentinh]?.secondPrize.length ? result.provincesData[tentinh].secondPrize : lastPrizeDataByProvince[tentinh].secondPrize,
-                        firstPrize: result.provincesData[tentinh]?.firstPrize.length ? result.provincesData[tentinh].firstPrize : lastPrizeDataByProvince[tentinh].firstPrize,
                         specialPrize: result.provincesData[tentinh]?.specialPrize.length ? result.provincesData[tentinh].specialPrize : lastPrizeDataByProvince[tentinh].specialPrize,
+                        firstPrize: result.provincesData[tentinh]?.firstPrize.length ? result.provincesData[tentinh].firstPrize : lastPrizeDataByProvince[tentinh].firstPrize,
+                        secondPrize: result.provincesData[tentinh]?.secondPrize.length ? result.provincesData[tentinh].secondPrize : lastPrizeDataByProvince[tentinh].secondPrize,
+                        threePrizes: result.provincesData[tentinh]?.threePrizes.length ? result.provincesData[tentinh].threePrizes : lastPrizeDataByProvince[tentinh].threePrizes,
+                        fourPrizes: result.provincesData[tentinh]?.fourPrizes.length ? result.provincesData[tentinh].fourPrizes : lastPrizeDataByProvince[tentinh].fourPrizes,
+                        fivePrizes: result.provincesData[tentinh]?.fivePrizes.length ? result.provincesData[tentinh].fivePrizes : lastPrizeDataByProvince[tentinh].fivePrizes,
+                        sixPrizes: result.provincesData[tentinh]?.sixPrizes.length ? result.provincesData[tentinh].sixPrizes : lastPrizeDataByProvince[tentinh].sixPrizes,
+                        sevenPrizes: result.provincesData[tentinh]?.sevenPrizes.length ? result.provincesData[tentinh].sevenPrizes : lastPrizeDataByProvince[tentinh].sevenPrizes,
+                        eightPrizes: result.provincesData[tentinh]?.eightPrizes.length ? result.provincesData[tentinh].eightPrizes : lastPrizeDataByProvince[tentinh].eightPrizes,
                         station,
                         createdAt: new Date(),
                     };
@@ -471,15 +475,15 @@ async function scrapeXSMT(date, station) {
                     logDataDetails(formattedResult);
 
                     const prizeTypes = [
-                        { key: 'eightPrizes', data: formattedResult.eightPrizes, isArray: true, minLength: 1 },
-                        { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true, minLength: 1 },
-                        { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true, minLength: 3 },
-                        { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true, minLength: 1 },
-                        { key: 'fourPrizes', data: formattedResult.fourPrizes, isArray: true, minLength: 7 },
-                        { key: 'threePrizes', data: formattedResult.threePrizes, isArray: true, minLength: 2 },
-                        { key: 'secondPrize', data: formattedResult.secondPrize, isArray: true, minLength: 1 },
-                        { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true, minLength: 1 },
                         { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true, minLength: 1 },
+                        { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true, minLength: 1 },
+                        { key: 'secondPrize', data: formattedResult.secondPrize, isArray: true, minLength: 1 },
+                        { key: 'threePrizes', data: formattedResult.threePrizes, isArray: true, minLength: 2 },
+                        { key: 'fourPrizes', data: formattedResult.fourPrizes, isArray: true, minLength: 7 },
+                        { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true, minLength: 1 },
+                        { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true, minLength: 3 },
+                        { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true, minLength: 1 },
+                        { key: 'eightPrizes', data: formattedResult.eightPrizes, isArray: true, minLength: 1 },
                     ];
 
                     const changes = [];
@@ -501,15 +505,15 @@ async function scrapeXSMT(date, station) {
                         await publishToRedis(changes, formattedResult);
                     }
 
-                    formattedResult.eightPrizes = lastPrizeDataByProvince[tentinh].eightPrizes;
-                    formattedResult.sevenPrizes = lastPrizeDataByProvince[tentinh].sevenPrizes;
-                    formattedResult.sixPrizes = lastPrizeDataByProvince[tentinh].sixPrizes;
-                    formattedResult.fivePrizes = lastPrizeDataByProvince[tentinh].fivePrizes;
-                    formattedResult.fourPrizes = lastPrizeDataByProvince[tentinh].fourPrizes;
-                    formattedResult.threePrizes = lastPrizeDataByProvince[tentinh].threePrizes;
-                    formattedResult.secondPrize = lastPrizeDataByProvince[tentinh].secondPrize;
-                    formattedResult.firstPrize = lastPrizeDataByProvince[tentinh].firstPrize;
                     formattedResult.specialPrize = lastPrizeDataByProvince[tentinh].specialPrize;
+                    formattedResult.firstPrize = lastPrizeDataByProvince[tentinh].firstPrize;
+                    formattedResult.secondPrize = lastPrizeDataByProvince[tentinh].secondPrize;
+                    formattedResult.threePrizes = lastPrizeDataByProvince[tentinh].threePrizes;
+                    formattedResult.fourPrizes = lastPrizeDataByProvince[tentinh].fourPrizes;
+                    formattedResult.fivePrizes = lastPrizeDataByProvince[tentinh].fivePrizes;
+                    formattedResult.sixPrizes = lastPrizeDataByProvince[tentinh].sixPrizes;
+                    formattedResult.sevenPrizes = lastPrizeDataByProvince[tentinh].sevenPrizes;
+                    formattedResult.eightPrizes = lastPrizeDataByProvince[tentinh].eightPrizes;
 
                     if (hasAnyData(formattedResult)) {
                         await saveToMongoDB(formattedResult);
@@ -521,7 +525,7 @@ async function scrapeXSMT(date, station) {
                 }
 
                 successCount += 1;
-                await logPerformance(iterationStart, iteration, true, 'All');
+                await logPerformance(iterationStart, iteration, true);
 
                 if (allProvincesComplete) {
                     console.log(`Dữ liệu ngày ${date} cho tất cả các tỉnh đã đầy đủ, dừng cào.`);
@@ -547,7 +551,7 @@ async function scrapeXSMT(date, station) {
                 intervalId = setInterval(scrapeAndSave, intervalMs);
             } catch (error) {
                 errorCount += 1;
-                await logPerformance(iterationStart, iteration, false, 'N/A');
+                await logPerformance(iterationStart, iteration, false);
             }
         };
 
@@ -598,7 +602,7 @@ if (date && station) {
     console.log(`Chạy thủ công cho ngày ${date} và đài ${station}`);
     scrapeXSMT(date, station);
 } else {
-    console.log('Dùng lệnh: node xsmt_scraper.js 19/04/2025 xsmt');
+    console.log('Dùng lệnh: node xsmt_scraper.js 18/06/2025 xsmt');
 }
 
 // Đóng kết nối khi dừng
