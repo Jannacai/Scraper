@@ -79,15 +79,15 @@ function formatDateToDDMMYYYY(date) {
 // Log chi tiết dữ liệu
 function logDataDetails(result) {
     const expectedCounts = [
-        { key: 'specialPrize', actual: result.specialPrize?.length || 0, expected: 1 },
-        { key: 'firstPrize', actual: result.firstPrize?.length || 0, expected: 1 },
-        { key: 'secondPrize', actual: result.secondPrize?.length || 0, expected: 1 },
-        { key: 'threePrizes', actual: result.threePrizes?.length || 0, expected: 2 },
-        { key: 'fourPrizes', actual: result.fourPrizes?.length || 0, expected: 7 },
-        { key: 'fivePrizes', actual: result.fivePrizes?.length || 0, expected: 1 },
-        { key: 'sixPrizes', actual: result.sixPrizes?.length || 0, expected: 3 },
-        { key: 'sevenPrizes', actual: result.sevenPrizes?.length || 0, expected: 1 },
         { key: 'eightPrizes', actual: result.eightPrizes?.length || 0, expected: 1 },
+        { key: 'sevenPrizes', actual: result.sevenPrizes?.length || 0, expected: 1 },
+        { key: 'sixPrizes', actual: result.sixPrizes?.length || 0, expected: 3 },
+        { key: 'fivePrizes', actual: result.fivePrizes?.length || 0, expected: 1 },
+        { key: 'fourPrizes', actual: result.fourPrizes?.length || 0, expected: 7 },
+        { key: 'threePrizes', actual: result.threePrizes?.length || 0, expected: 2 },
+        { key: 'secondPrize', actual: result.secondPrize?.length || 0, expected: 1 },
+        { key: 'firstPrize', actual: result.firstPrize?.length || 0, expected: 1 },
+        { key: 'specialPrize', actual: result.specialPrize?.length || 0, expected: 1 },
     ];
 
     console.log(`Chi tiết dữ liệu cho tỉnh ${result.tentinh}:`);
@@ -105,15 +105,15 @@ function isDataComplete(result, completedPrizes, stableCounts) {
         return isValid;
     };
 
-    checkPrize('specialPrize', result.specialPrize, 1);
-    checkPrize('firstPrize', result.firstPrize, 1);
-    checkPrize('secondPrize', result.secondPrize, 1);
-    checkPrize('threePrizes', result.threePrizes, 2);
-    checkPrize('fourPrizes', result.fourPrizes, 7);
-    checkPrize('fivePrizes', result.fivePrizes, 1);
-    checkPrize('sixPrizes', result.sixPrizes, 3);
-    checkPrize('sevenPrizes', result.sevenPrizes, 1);
     checkPrize('eightPrizes', result.eightPrizes, 1);
+    checkPrize('sevenPrizes', result.sevenPrizes, 1);
+    checkPrize('sixPrizes', result.sixPrizes, 3);
+    checkPrize('fivePrizes', result.fivePrizes, 1);
+    checkPrize('fourPrizes', result.fourPrizes, 7);
+    checkPrize('threePrizes', result.threePrizes, 2);
+    checkPrize('secondPrize', result.secondPrize, 1);
+    checkPrize('firstPrize', result.firstPrize, 1);
+    checkPrize('specialPrize', result.specialPrize, 1);
 
     return result.tentinh && result.tentinh.length >= 1 && !result.tentinh.startsWith('Tỉnh_') &&
         Object.keys(completedPrizes).every(k => completedPrizes[k]);
@@ -124,15 +124,15 @@ function hasAnyData(result) {
     return (
         result.tentinh && result.tentinh.length >= 1 && !result.tentinh.startsWith('Tỉnh_') &&
         (
-            (result.specialPrize && result.specialPrize.length >= 1 && result.specialPrize.every(p => p && p !== '...')) ||
-            (result.firstPrize && result.firstPrize.length >= 1 && result.firstPrize.every(p => p && p !== '...')) ||
-            (result.secondPrize && result.secondPrize.length >= 1 && result.secondPrize.every(p => p && p !== '...')) ||
-            (result.threePrizes && result.threePrizes.length >= 1 && result.threePrizes.every(p => p && p !== '...')) ||
-            (result.fourPrizes && result.fourPrizes.length >= 1 && result.fourPrizes.every(p => p && p !== '...')) ||
-            (result.fivePrizes && result.fivePrizes.length >= 1 && result.fivePrizes.every(p => p && p !== '...')) ||
-            (result.sixPrizes && result.sixPrizes.length >= 1 && result.sixPrizes.every(p => p && p !== '...')) ||
+            (result.eightPrizes && result.eightPrizes.length >= 1 && result.eightPrizes.every(p => p && p !== '...')) ||
             (result.sevenPrizes && result.sevenPrizes.length >= 1 && result.sevenPrizes.every(p => p && p !== '...')) ||
-            (result.eightPrizes && result.eightPrizes.length >= 1 && result.eightPrizes.every(p => p && p !== '...'))
+            (result.sixPrizes && result.sixPrizes.length >= 1 && result.sixPrizes.every(p => p && p !== '...')) ||
+            (result.fivePrizes && result.fivePrizes.length >= 1 && result.fivePrizes.every(p => p && p !== '...')) ||
+            (result.fourPrizes && result.fourPrizes.length >= 1 && result.fourPrizes.every(p => p && p !== '...')) ||
+            (result.threePrizes && result.threePrizes.length >= 1 && result.threePrizes.every(p => p && p !== '...')) ||
+            (result.secondPrize && result.secondPrize.length >= 1 && result.secondPrize.every(p => p && p !== '...')) ||
+            (result.firstPrize && result.firstPrize.length >= 1 && result.firstPrize.every(p => p && p !== '...')) ||
+            (result.specialPrize && result.specialPrize.length >= 1 && result.specialPrize.every(p => p && p !== '...'))
         )
     );
 }
@@ -171,27 +171,27 @@ async function saveToMongoDB(result) {
 
         if (existingResult) {
             const existingData = {
-                specialPrize: existingResult.specialPrize,
-                firstPrize: existingResult.firstPrize,
-                secondPrize: existingResult.secondPrize,
-                threePrizes: existingResult.threePrizes,
-                fourPrizes: existingResult.fourPrizes,
-                fivePrizes: existingResult.fivePrizes,
-                sixPrizes: existingResult.sixPrizes,
-                sevenPrizes: existingResult.sevenPrizes,
                 eightPrizes: existingResult.eightPrizes,
+                sevenPrizes: existingResult.sevenPrizes,
+                sixPrizes: existingResult.sixPrizes,
+                fivePrizes: existingResult.fivePrizes,
+                fourPrizes: existingResult.fourPrizes,
+                threePrizes: existingResult.threePrizes,
+                secondPrize: existingResult.secondPrize,
+                firstPrize: existingResult.firstPrize,
+                specialPrize: existingResult.specialPrize,
             };
 
             const newData = {
-                specialPrize: result.specialPrize,
-                firstPrize: result.firstPrize,
-                secondPrize: result.secondPrize,
-                threePrizes: result.threePrizes,
-                fourPrizes: result.fourPrizes,
-                fivePrizes: result.fivePrizes,
-                sixPrizes: result.sixPrizes,
-                sevenPrizes: result.sevenPrizes,
                 eightPrizes: result.eightPrizes,
+                sevenPrizes: result.sevenPrizes,
+                sixPrizes: result.sixPrizes,
+                fivePrizes: result.fivePrizes,
+                fourPrizes: result.fourPrizes,
+                threePrizes: result.threePrizes,
+                secondPrize: result.secondPrize,
+                firstPrize: result.firstPrize,
+                specialPrize: result.specialPrize,
             };
 
             if (JSON.stringify(existingData) !== JSON.stringify(newData)) {
@@ -282,15 +282,15 @@ async function scrapeXSMT(date, station) {
         }
 
         const selectors = {
-            specialPrize: 'span[class*="v-gdb"]',
-            firstPrize: 'span[class*="v-g1"]',
-            secondPrize: 'span[class*="v-g2"]',
-            threePrizes: 'span[class*="v-g3-"]',
-            fourPrizes: 'span[class*="v-g4-"]',
-            fivePrizes: 'span[class*="v-g5"]',
-            sixPrizes: 'span[class*="v-g6-"]',
-            sevenPrizes: 'span[class*="v-g7"]',
             eightPrizes: 'span[class*="v-g8"]',
+            sevenPrizes: 'span[class*="v-g7"]',
+            sixPrizes: 'span[class*="v-g6-"]',
+            fivePrizes: 'span[class*="v-g5"]',
+            fourPrizes: 'span[class*="v-g4-"]',
+            threePrizes: 'span[class*="v-g3-"]',
+            secondPrize: 'span[class*="v-g2"]',
+            firstPrize: 'span[class*="v-g1"]',
+            specialPrize: 'span[class*="v-gdb"]',
         };
 
         const scrapeAndSave = async () => {
@@ -356,15 +356,15 @@ async function scrapeXSMT(date, station) {
                     const provincesData = {};
                     provinces.forEach(province => {
                         provincesData[province] = {
-                            specialPrize: [],
-                            firstPrize: [],
-                            secondPrize: [],
-                            threePrizes: [],
-                            fourPrizes: [],
-                            fivePrizes: [],
-                            sixPrizes: [],
-                            sevenPrizes: [],
                             eightPrizes: [],
+                            sevenPrizes: [],
+                            sixPrizes: [],
+                            fivePrizes: [],
+                            fourPrizes: [],
+                            threePrizes: [],
+                            secondPrize: [],
+                            firstPrize: [],
+                            specialPrize: [],
                         };
                     });
 
@@ -405,37 +405,37 @@ async function scrapeXSMT(date, station) {
                 result.provinces.forEach(province => {
                     if (!lastPrizeDataByProvince[province]) {
                         lastPrizeDataByProvince[province] = {
-                            specialPrize: ['...'],
-                            firstPrize: ['...'],
-                            secondPrize: ['...'],
-                            threePrizes: ['...', '...'],
-                            fourPrizes: ['...', '...', '...', '...', '...', '...', '...'],
-                            fivePrizes: ['...'],
-                            sixPrizes: ['...', '...', '...'],
-                            sevenPrizes: ['...'],
                             eightPrizes: ['...'],
+                            sevenPrizes: ['...'],
+                            sixPrizes: ['...', '...', '...'],
+                            fivePrizes: ['...'],
+                            fourPrizes: ['...', '...', '...', '...', '...', '...', '...'],
+                            threePrizes: ['...', '...'],
+                            secondPrize: ['...'],
+                            firstPrize: ['...'],
+                            specialPrize: ['...'],
                         };
                         lastPrizeDataByProvince[province].completedPrizes = {
-                            specialPrize: false,
-                            firstPrize: false,
-                            secondPrize: false,
-                            threePrizes: false,
-                            fourPrizes: false,
-                            fivePrizes: false,
-                            sixPrizes: false,
-                            sevenPrizes: false,
                             eightPrizes: false,
+                            sevenPrizes: false,
+                            sixPrizes: false,
+                            fivePrizes: false,
+                            fourPrizes: false,
+                            threePrizes: false,
+                            secondPrize: false,
+                            firstPrize: false,
+                            specialPrize: false,
                         };
                         lastPrizeDataByProvince[province].stableCounts = {
-                            specialPrize: 0,
-                            firstPrize: 0,
-                            secondPrize: 0,
-                            threePrizes: 0,
-                            fourPrizes: 0,
-                            fivePrizes: 0,
-                            sixPrizes: 0,
-                            sevenPrizes: 0,
                             eightPrizes: 0,
+                            sevenPrizes: 0,
+                            sixPrizes: 0,
+                            fivePrizes: 0,
+                            fourPrizes: 0,
+                            threePrizes: 0,
+                            secondPrize: 0,
+                            firstPrize: 0,
+                            specialPrize: 0,
                         };
                     }
                 });
@@ -459,15 +459,15 @@ async function scrapeXSMT(date, station) {
                         dayOfWeek,
                         tentinh,
                         tinh,
-                        specialPrize: result.provincesData[tentinh]?.specialPrize.length ? result.provincesData[tentinh].specialPrize : lastPrizeDataByProvince[tentinh].specialPrize,
-                        firstPrize: result.provincesData[tentinh]?.firstPrize.length ? result.provincesData[tentinh].firstPrize : lastPrizeDataByProvince[tentinh].firstPrize,
-                        secondPrize: result.provincesData[tentinh]?.secondPrize.length ? result.provincesData[tentinh].secondPrize : lastPrizeDataByProvince[tentinh].secondPrize,
-                        threePrizes: result.provincesData[tentinh]?.threePrizes.length ? result.provincesData[tentinh].threePrizes : lastPrizeDataByProvince[tentinh].threePrizes,
-                        fourPrizes: result.provincesData[tentinh]?.fourPrizes.length ? result.provincesData[tentinh].fourPrizes : lastPrizeDataByProvince[tentinh].fourPrizes,
-                        fivePrizes: result.provincesData[tentinh]?.fivePrizes.length ? result.provincesData[tentinh].fivePrizes : lastPrizeDataByProvince[tentinh].fivePrizes,
-                        sixPrizes: result.provincesData[tentinh]?.sixPrizes.length ? result.provincesData[tentinh].sixPrizes : lastPrizeDataByProvince[tentinh].sixPrizes,
-                        sevenPrizes: result.provincesData[tentinh]?.sevenPrizes.length ? result.provincesData[tentinh].sevenPrizes : lastPrizeDataByProvince[tentinh].sevenPrizes,
                         eightPrizes: result.provincesData[tentinh]?.eightPrizes.length ? result.provincesData[tentinh].eightPrizes : lastPrizeDataByProvince[tentinh].eightPrizes,
+                        sevenPrizes: result.provincesData[tentinh]?.sevenPrizes.length ? result.provincesData[tentinh].sevenPrizes : lastPrizeDataByProvince[tentinh].sevenPrizes,
+                        sixPrizes: result.provincesData[tentinh]?.sixPrizes.length ? result.provincesData[tentinh].sixPrizes : lastPrizeDataByProvince[tentinh].sixPrizes,
+                        fivePrizes: result.provincesData[tentinh]?.fivePrizes.length ? result.provincesData[tentinh].fivePrizes : lastPrizeDataByProvince[tentinh].fivePrizes,
+                        fourPrizes: result.provincesData[tentinh]?.fourPrizes.length ? result.provincesData[tentinh].fourPrizes : lastPrizeDataByProvince[tentinh].fourPrizes,
+                        threePrizes: result.provincesData[tentinh]?.threePrizes.length ? result.provincesData[tentinh].threePrizes : lastPrizeDataByProvince[tentinh].threePrizes,
+                        secondPrize: result.provincesData[tentinh]?.secondPrize.length ? result.provincesData[tentinh].secondPrize : lastPrizeDataByProvince[tentinh].secondPrize,
+                        firstPrize: result.provincesData[tentinh]?.firstPrize.length ? result.provincesData[tentinh].firstPrize : lastPrizeDataByProvince[tentinh].firstPrize,
+                        specialPrize: result.provincesData[tentinh]?.specialPrize.length ? result.provincesData[tentinh].specialPrize : lastPrizeDataByProvince[tentinh].specialPrize,
                         station,
                         createdAt: new Date(),
                     };
@@ -475,15 +475,15 @@ async function scrapeXSMT(date, station) {
                     logDataDetails(formattedResult);
 
                     const prizeTypes = [
-                        { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true, minLength: 1 },
-                        { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true, minLength: 1 },
-                        { key: 'secondPrize', data: formattedResult.secondPrize, isArray: true, minLength: 1 },
-                        { key: 'threePrizes', data: formattedResult.threePrizes, isArray: true, minLength: 2 },
-                        { key: 'fourPrizes', data: formattedResult.fourPrizes, isArray: true, minLength: 7 },
-                        { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true, minLength: 1 },
-                        { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true, minLength: 3 },
-                        { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true, minLength: 1 },
                         { key: 'eightPrizes', data: formattedResult.eightPrizes, isArray: true, minLength: 1 },
+                        { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true, minLength: 1 },
+                        { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true, minLength: 3 },
+                        { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true, minLength: 1 },
+                        { key: 'fourPrizes', data: formattedResult.fourPrizes, isArray: true, minLength: 7 },
+                        { key: 'threePrizes', data: formattedResult.threePrizes, isArray: true, minLength: 2 },
+                        { key: 'secondPrize', data: formattedResult.secondPrize, isArray: true, minLength: 1 },
+                        { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true, minLength: 1 },
+                        { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true, minLength: 1 },
                     ];
 
                     const changes = [];
@@ -505,15 +505,15 @@ async function scrapeXSMT(date, station) {
                         await publishToRedis(changes, formattedResult);
                     }
 
-                    formattedResult.specialPrize = lastPrizeDataByProvince[tentinh].specialPrize;
-                    formattedResult.firstPrize = lastPrizeDataByProvince[tentinh].firstPrize;
-                    formattedResult.secondPrize = lastPrizeDataByProvince[tentinh].secondPrize;
-                    formattedResult.threePrizes = lastPrizeDataByProvince[tentinh].threePrizes;
-                    formattedResult.fourPrizes = lastPrizeDataByProvince[tentinh].fourPrizes;
-                    formattedResult.fivePrizes = lastPrizeDataByProvince[tentinh].fivePrizes;
-                    formattedResult.sixPrizes = lastPrizeDataByProvince[tentinh].sixPrizes;
-                    formattedResult.sevenPrizes = lastPrizeDataByProvince[tentinh].sevenPrizes;
                     formattedResult.eightPrizes = lastPrizeDataByProvince[tentinh].eightPrizes;
+                    formattedResult.sevenPrizes = lastPrizeDataByProvince[tentinh].sevenPrizes;
+                    formattedResult.sixPrizes = lastPrizeDataByProvince[tentinh].sixPrizes;
+                    formattedResult.fivePrizes = lastPrizeDataByProvince[tentinh].fivePrizes;
+                    formattedResult.fourPrizes = lastPrizeDataByProvince[tentinh].fourPrizes;
+                    formattedResult.threePrizes = lastPrizeDataByProvince[tentinh].threePrizes;
+                    formattedResult.secondPrize = lastPrizeDataByProvince[tentinh].secondPrize;
+                    formattedResult.firstPrize = lastPrizeDataByProvince[tentinh].firstPrize;
+                    formattedResult.specialPrize = lastPrizeDataByProvince[tentinh].specialPrize;
 
                     if (hasAnyData(formattedResult)) {
                         await saveToMongoDB(formattedResult);
