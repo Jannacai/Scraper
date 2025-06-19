@@ -265,25 +265,16 @@ async function scrapeXSMT(date, station) {
             throw new Error('Chỉ hỗ trợ đài xsmt trong phiên bản này');
         }
 
-        const formatDateToYYYYMMDD = (date) => {
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            return `${year}${month}${day}`;
-        };
-
-        const dateHash = `#mt_kqngay_${formatDateToYYYYMMDD(new Date(date.replace(/\//g, '-')))}`;
-
         const selectors = {
-            eightPrizes: `${dateHash} span[class*="v-g8"]`,
-            sevenPrizes: `${dateHash} span[class*="v-g7"]`,
-            sixPrizes: `${dateHash} span[class*="v-g6-"]`,
-            fivePrizes: `${dateHash} span[class*="v-g5"]`,
-            fourPrizes: `${dateHash} span[class*="v-g4-"]`,
-            threePrizes: `${dateHash} span[class*="v-g3-"]`,
-            secondPrize: `${dateHash} span[class*="v-g2"]`,
-            firstPrize: `${dateHash} span[class*="v-g1"]`,
-            specialPrize: `${dateHash} span[class*="v-gdb"]`,
+            eightPrizes: 'span[class*="v-g8"]',
+            sevenPrizes: 'span[class*="v-g7"]',
+            sixPrizes: 'span[class*="v-g6-"]',
+            fivePrizes: 'span[class*="v-g5"]',
+            fourPrizes: 'span[class*="v-g4-"]',
+            threePrizes: 'span[class*="v-g3-"]',
+            secondPrize: 'span[class*="v-g2"]',
+            firstPrize: 'span[class*="v-g1"]',
+            specialPrize: 'span[class*="v-gdb"]',
         };
 
         const scrapeAndSave = async () => {
@@ -598,3 +589,4 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis');
     process.exit(0);
 });
+// mã này chưa chỉnh sửa gì hết. mã 19/06

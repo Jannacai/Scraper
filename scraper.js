@@ -30,9 +30,8 @@ function isDataComplete(result, completedPrizes, stableCounts) {
         return isValid;
     };
 
-    const isValidMaDB = result.maDB && typeof result.maDB === 'string' && result.maDB.trim() !== '' && result.maDB.trim() !== '...';
-    stableCounts.maDB = isValidMaDB ? (stableCounts.maDB || 0) + 1 : 0;
-    completedPrizes.maDB = isValidMaDB && stableCounts.maDB >= 1;
+    // Bỏ kiểm tra isValidMaDB, luôn coi maDB là hoàn thành
+    completedPrizes.maDB = true;
 
     checkPrize('firstPrize', result.firstPrize || [], 1);
     checkPrize('secondPrize', result.secondPrize || [], 2);
@@ -59,6 +58,7 @@ async function publishToRedis(changes, additionalData) {
         }
         const pipeline = redisClient.multi();
         for (const { key, data } of changes) {
+            console.log('Publishing:', key, data); // Thêm log để debug
             pipeline.publish(`xsmb:${today}`, JSON.stringify({ prizeType: key, prizeData: data, drawDate: today, tentinh, tinh, year, month }));
             pipeline.hSet(`kqxs:${today}`, key, JSON.stringify(data));
         }
@@ -288,6 +288,8 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     return result;
                 }, { dateHash, selectors, prizeOrder });
 
+                console.log('maDB cào được:', result.maDB); // Thêm log để debug
+
                 const dayOfWeekIndex = dateObj.getDay();
                 let tinh, tentinh;
                 switch (dayOfWeekIndex) {
@@ -333,11 +335,16 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true, minLength: 6 },
                     { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true, minLength: 3 },
                     { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true, minLength: 4 },
-                    { key: 'maDB', data: formattedResult.maDB, isArray: false, minLength: 1 },
                     { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true, minLength: 1 },
                 ];
 
                 const changes = [];
+                // Publish maDB riêng, không kiểm tra điều kiện
+                if (formattedResult.maDB !== undefined) {
+                    changes.push({ key: 'maDB', data: formattedResult.maDB });
+                }
+
+                // Publish các giải khác với logic hiện tại
                 for (const { key, data, isArray, minLength } of prizeTypes) {
                     if (isArray) {
                         if (!Array.isArray(data)) {
