@@ -30,8 +30,9 @@ function isDataComplete(result, completedPrizes, stableCounts) {
         return isValid;
     };
 
-    // Bỏ kiểm tra isValidMaDB, luôn coi maDB là hoàn thành
-    completedPrizes.maDB = true;
+    const isValidMaDB = result.maDB && typeof result.maDB === 'string' && result.maDB.trim() !== '' && result.maDB.trim() !== '...';
+    stableCounts.maDB = isValidMaDB ? (stableCounts.maDB || 0) + 1 : 0;
+    completedPrizes.maDB = isValidMaDB && stableCounts.maDB >= 1;
 
     checkPrize('firstPrize', result.firstPrize || [], 1);
     checkPrize('secondPrize', result.secondPrize || [], 2);
@@ -58,7 +59,6 @@ async function publishToRedis(changes, additionalData) {
         }
         const pipeline = redisClient.multi();
         for (const { key, data } of changes) {
-            console.log('Publishing:', key, data); // Thêm log để debug
             pipeline.publish(`xsmb:${today}`, JSON.stringify({ prizeType: key, prizeData: data, drawDate: today, tentinh, tinh, year, month }));
             pipeline.hSet(`kqxs:${today}`, key, JSON.stringify(data));
         }
@@ -223,7 +223,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
             fivePrizes: `${dateHash} span[class*="v-g5-"]`,
             sixPrizes: `${dateHash} span[class*="v-g6-"]`,
             sevenPrizes: `${dateHash} span[class*="v-g7-"]`,
-            maDB: `${dateHash} span[class*="v-madb"]`,
+            maDB: `${dateHash} span[class*="v-madb"]:first-child`,
             specialPrize: `${dateHash} span[class*="v-gdb"]`,
         };
 
@@ -288,8 +288,6 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     return result;
                 }, { dateHash, selectors, prizeOrder });
 
-                console.log('maDB cào được:', result.maDB); // Thêm log để debug
-
                 const dayOfWeekIndex = dateObj.getDay();
                 let tinh, tentinh;
                 switch (dayOfWeekIndex) {
@@ -335,11 +333,11 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     { key: 'fivePrizes', data: formattedResult.fivePrizes, isArray: true, minLength: 6 },
                     { key: 'sixPrizes', data: formattedResult.sixPrizes, isArray: true, minLength: 3 },
                     { key: 'sevenPrizes', data: formattedResult.sevenPrizes, isArray: true, minLength: 4 },
+                    { key: 'maDB', data: formattedResult.maDB, isArray: false, minLength: 1 },
                     { key: 'specialPrize', data: formattedResult.specialPrize, isArray: true, minLength: 1 },
                 ];
 
                 const changes = [];
-                // Publish các giải khác với logic hiện tại
                 for (const { key, data, isArray, minLength } of prizeTypes) {
                     if (isArray) {
                         if (!Array.isArray(data)) {
@@ -356,12 +354,6 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                         changes.push({ key, data });
                         lastPrizeData[key] = data;
                     }
-                }
-
-                // Publish maDB nếu khác '...', sau các giải khác
-                if (formattedResult.maDB !== '...') {
-                    changes.push({ key: 'maDB', data: formattedResult.maDB });
-                    lastPrizeData.maDB = formattedResult.maDB; // Cập nhật lastPrizeData
                 }
 
                 if (changes.length) {
@@ -464,4 +456,4 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis MIỀN BẮC');
     process.exit(0);
 });
-// Cần test thử ngày 20/06/2025
+// đã cào ổn, chỉ bị mỗi maDB chưa sửa.(phiên bản hiện tại đang sử dụng đã sửa) : phiên bản này chưa 19/6

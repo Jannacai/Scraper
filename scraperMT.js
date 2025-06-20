@@ -65,7 +65,7 @@ function formatDateToDDMMYYYY(date) {
 // Kiểm tra dữ liệu hoàn chỉnh
 function isDataComplete(result, completedPrizes, stableCounts) {
     const checkPrize = (key, data, minLength) => {
-        const isValid = Array.isArray(data) && data.length >= minLength && data.every(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
+        const isValid = Array.isArray(data) && data.length === minLength && data.every(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
         stableCounts[key] = isValid ? (stableCounts[key] || 0) + 1 : 0;
         completedPrizes[key] = isValid && stableCounts[key] >= (key === 'specialPrize' ? 2 : 1);
         return isValid;
@@ -236,7 +236,6 @@ async function scrapeXSMT(date, station, isTestMode = false) {
             throw new Error('Ngày không hợp lệ: ' + date);
         }
         const formattedDate = date.replace(/\//g, '-');
-        const dateHash = `#kqngay_${formattedDate.split('-').join('')}`;
 
         await clearStaleLock();
         await connectMongoDB();
@@ -263,15 +262,15 @@ async function scrapeXSMT(date, station, isTestMode = false) {
         }
 
         const selectors = {
-            eightPrizes: `${dateHash} span[class*="v-g8"]`,
-            sevenPrizes: `${dateHash} span[class*="v-g7"]`,
-            sixPrizes: `${dateHash} span[class*="v-g6-"]`,
-            fivePrizes: `${dateHash} span[class*="v-g5"]`,
-            fourPrizes: `${dateHash} span[class*="v-g4-"]`,
-            threePrizes: `${dateHash} span[class*="v-g3-"]`,
-            secondPrize: `${dateHash} span[class*="v-g2"]`,
-            firstPrize: `${dateHash} span[class*="v-g1"]`,
-            specialPrize: `${dateHash} span[class*="v-gdb"]`,
+            eightPrizes: 'span[class*="v-g8"]',
+            sevenPrizes: 'span[class*="v-g7"]',
+            sixPrizes: 'span[class*="v-g6-"]',
+            fivePrizes: 'span[class*="v-g5"]',
+            fourPrizes: 'span[class*="v-g4-"]',
+            threePrizes: 'span[class*="v-g3-"]',
+            secondPrize: 'span[class*="v-g2"]',
+            firstPrize: 'span[class*="v-g1"]',
+            specialPrize: 'span[class*="v-gdb"]',
         };
 
         const prizeLimits = {
@@ -315,7 +314,7 @@ async function scrapeXSMT(date, station, isTestMode = false) {
                     }
                 }
 
-                const result = await page.evaluate(({ selectors, prizeLimits, provinces, prizeOrders }) => {
+                const result = await page.evaluate(({ selectors, prizeLimits }) => {
                     const getPrizeForProvince = (selector, provinceIndex, limit) => {
                         try {
                             const elements = document.querySelectorAll(selector);
@@ -330,34 +329,37 @@ async function scrapeXSMT(date, station, isTestMode = false) {
                         }
                     };
 
-                    const provincesData = {};
-                    provinces.forEach((province, index) => {
-                        provincesData[province] = {};
-                        const prizeOrder = prizeOrders[province] || [];
-                        for (const prizeType of prizeOrder) {
-                            provincesData[province][prizeType] = getPrizeForProvince(selectors[prizeType], index, prizeLimits[prizeType]);
-                        }
-                    });
-
-                    const drawDate = document.querySelector('.ngay_quay, .draw-date, .date, h1.df-title')?.textContent.trim().match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || '';
-                    return { provinces, provincesData, drawDate };
-                }, { selectors, prizeLimits, provinces: [], prizeOrders: {} });
-
-                result.provinces = [];
-                const provinceRow = await page.evaluate(() => {
-                    const row = document.querySelector('table.kqsx-mt tr.bg-pr');
-                    if (!row) return [];
                     const provinces = [];
-                    row.querySelectorAll('th').forEach((elem, i) => {
+                    const provinceRow = document.querySelector('table.kqsx-mt tr.bg-pr');
+                    if (!provinceRow) {
+                        return { provinces, provincesData: {}, drawDate: '' };
+                    }
+                    provinceRow.querySelectorAll('th').forEach((elem, i) => {
                         if (i === 0) return;
                         const provinceName = elem.querySelector('a')?.textContent.trim();
                         if (provinceName && !provinceName.startsWith('Tỉnh_')) {
                             provinces.push(provinceName);
                         }
                     });
-                    return provinces;
-                });
-                result.provinces = provinceRow;
+
+                    const provincesData = {};
+                    provinces.forEach((province, index) => {
+                        provincesData[province] = {
+                            eightPrizes: getPrizeForProvince(selectors.eightPrizes, index, prizeLimits.eightPrizes),
+                            sevenPrizes: getPrizeForProvince(selectors.sevenPrizes, index, prizeLimits.sevenPrizes),
+                            sixPrizes: getPrizeForProvince(selectors.sixPrizes, index, prizeLimits.sixPrizes),
+                            fivePrizes: getPrizeForProvince(selectors.fivePrizes, index, prizeLimits.fivePrizes),
+                            fourPrizes: getPrizeForProvince(selectors.fourPrizes, index, prizeLimits.fourPrizes),
+                            threePrizes: getPrizeForProvince(selectors.threePrizes, index, prizeLimits.threePrizes),
+                            secondPrize: getPrizeForProvince(selectors.secondPrize, index, prizeLimits.secondPrize),
+                            firstPrize: getPrizeForProvince(selectors.firstPrize, index, prizeLimits.firstPrize),
+                            specialPrize: getPrizeForProvince(selectors.specialPrize, index, prizeLimits.specialPrize),
+                        };
+                    });
+
+                    const drawDate = document.querySelector('.ngay_quay, .draw-date, .date, h1.df-title')?.textContent.trim().match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || '';
+                    return { provinces, provincesData, drawDate };
+                }, { selectors, prizeLimits });
 
                 if (result.provinces.length === 0) {
                     console.log('Không tìm thấy tỉnh nào, tiếp tục cào...');
@@ -370,7 +372,6 @@ async function scrapeXSMT(date, station, isTestMode = false) {
                 const dayOfWeek = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][dayOfWeekIndex] || 'Thứ 2';
                 let allProvincesComplete = true;
 
-                const prizeOrders = {};
                 for (const tentinh of result.provinces) {
                     if (!lastPrizeDataByProvince[tentinh]) {
                         lastPrizeDataByProvince[tentinh] = {
@@ -407,18 +408,6 @@ async function scrapeXSMT(date, station, isTestMode = false) {
                             },
                         };
                     }
-
-                    prizeOrders[tentinh] = [
-                        'eightPrizes',
-                        'sevenPrizes',
-                        'sixPrizes',
-                        'fivePrizes',
-                        'fourPrizes',
-                        'threePrizes',
-                        'secondPrize',
-                        'firstPrize',
-                        'specialPrize',
-                    ].filter(key => !lastPrizeDataByProvince[tentinh].completedPrizes[key]);
 
                     const tinh = toKebabCase(tentinh);
                     const slug = `xsmt-${formattedDate}-${tinh}`;
@@ -493,34 +482,6 @@ async function scrapeXSMT(date, station, isTestMode = false) {
                         allProvincesComplete = false;
                     }
                 }
-
-                await page.evaluate(({ selectors, prizeLimits, provinces, prizeOrders }) => {
-                    const getPrizeForProvince = (selector, provinceIndex, limit) => {
-                        try {
-                            const elements = document.querySelectorAll(selector);
-                            const prizeIndex = provinceIndex * limit;
-                            return Array.from(elements)
-                                .slice(prizeIndex, prizeIndex + limit)
-                                .map(elem => elem.getAttribute('data-id')?.trim() || '')
-                                .filter(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
-                        } catch (error) {
-                            console.error(`Lỗi lấy selector ${selector} cho tỉnh thứ ${provinceIndex}:`, error.message);
-                            return [];
-                        }
-                    };
-
-                    const provincesData = {};
-                    provinces.forEach((province, index) => {
-                        provincesData[province] = {};
-                        const prizeOrder = prizeOrders[province] || [];
-                        for (const prizeType of prizeOrder) {
-                            provincesData[province][prizeType] = getPrizeForProvince(selectors[prizeType], index, prizeLimits[prizeType]);
-                        }
-                    });
-
-                    const drawDate = document.querySelector('.ngay_quay, .draw-date, .date, h1.df-title')?.textContent.trim().match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || '';
-                    return { provinces, provincesData, drawDate };
-                }, { selectors, prizeLimits, provinces: result.provinces, prizeOrders });
 
                 await logPerformance(iterationStart, iteration, true);
                 successCount += 1;
@@ -602,4 +563,4 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis MIỀN TRUNG');
     process.exit(0);
 });
-// hàm cào XSMT này đã sửa dateHash(sẽ không cào được thủ công, chỉ trực tiếp)(20/06)
+// phiên bản này cần test không có DateHash(20/06)(phiên này sài oke rồi đưa lên)
