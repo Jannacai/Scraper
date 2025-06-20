@@ -602,4 +602,4 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis MIỀN TRUNG');
     process.exit(0);
 });
-// hàm cào XSMT này đã sửa dateHash(sẽ không cào được thủ công, chỉ trực tiếp) cần test(20/06)
+// hàm cào XSMT này đã sửa dateHash(sẽ không cào được thủ công, chỉ trực tiếp)(20/06)
