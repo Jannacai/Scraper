@@ -1,9 +1,6 @@
 const puppeteer = require('puppeteer');
 const mongoose = require('mongoose');
 const redis = require('redis');
-const { lock } = require('proper-lockfile');
-const fs = require('fs');
-const path = require('path');
 const pidusage = require('pidusage');
 const { connectMongoDB, isConnected } = require('./db');
 require('dotenv').config();
@@ -17,30 +14,6 @@ const redisClient = redis.createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
 });
 redisClient.connect().catch(err => console.error('Lỗi kết nối Redis:', err.message));
-
-// File lock
-const lockFilePath = path.resolve(__dirname, 'xsmn_scraper.lock');
-const ensureLockFile = () => {
-    if (!fs.existsSync(lockFilePath)) {
-        fs.writeFileSync(lockFilePath, '');
-        console.log(`Tạo file ${lockFilePath}`);
-    }
-};
-
-// Xóa lock file cũ
-const clearStaleLock = async () => {
-    try {
-        if (fs.existsSync(lockFilePath)) {
-            const stats = fs.statSync(lockFilePath);
-            if (Date.now() - new Date(stats.mtime).getTime() > 10000) {
-                fs.unlinkSync(lockFilePath);
-                console.log(`Đã xóa file lock cũ: ${lockFilePath}`);
-            }
-        }
-    } catch (error) {
-        console.error('Lỗi khi xóa file lock:', error.message);
-    }
-};
 
 // Danh sách tỉnh theo ngày
 const provincesByDay = {
@@ -247,7 +220,6 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
     let browser;
     let page;
     let intervalId;
-    let release;
     let isStopped = false;
     let iteration = 0;
     let successCount = 0;
@@ -256,7 +228,7 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
     const lastPrizeDataByProvince = {};
 
     const createNewPage = async () => {
-        if (page && !page.isClosed()) await page.close();
+        if (page && !page.isClosed()) return;
         page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124');
         await page.setRequestInterception(true);
@@ -277,10 +249,7 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
         }
         const formattedDate = date.replace(/\//g, '-');
 
-        await clearStaleLock();
         await connectMongoDB();
-        ensureLockFile();
-        release = await lock(lockFilePath, { retries: 3, stale: 10000 });
 
         const targetProvinces = provinces && provinces.length > 0 ? provinces : provincesByDay[dateObj.getDay()] || [];
         if (!targetProvinces || targetProvinces.length === 0) {
@@ -342,21 +311,15 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
             console.log(`Bắt đầu lần cào ${iteration}`);
 
             try {
-                let attempt = 0;
-                const maxAttempts = 3;
-                let response;
-                while (attempt < maxAttempts) {
-                    try {
-                        response = await page.goto(baseUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-                        if (response.status() >= 400) {
-                            throw new Error(`Lỗi HTTP ${response.status()}`);
-                        }
-                        break;
-                    } catch (error) {
-                        attempt++;
-                        if (attempt === maxAttempts) throw error;
-                        await createNewPage();
-                    }
+                if (iteration === 1) {
+                    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 7000 });
+                    await page.waitForSelector('table.kqsx-mt tr.bg-pr', { timeout: 2000 }).catch(() => {
+                        console.log('Chưa thấy hàng tỉnh, tiếp tục cào...');
+                    });
+                } else {
+                    await page.waitForSelector('table.kqsx-mt tr.bg-pr', { timeout: 2000 }).catch(() => {
+                        console.log('Chưa thấy hàng tỉnh, tiếp tục cào...');
+                    });
                 }
 
                 const result = await page.evaluate(({ selectors, prizeLimits }) => {
@@ -552,7 +515,6 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
                     });
                     if (page && !page.isClosed()) await page.close();
                     if (browser) await browser.close();
-                    if (release) await release();
                     return;
                 }
             } catch (error) {
@@ -584,7 +546,6 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
                 });
                 if (page && !page.isClosed()) await page.close();
                 if (browser) await browser.close();
-                if (release) await release();
             }
         }, 17 * 60 * 1000);
 
@@ -593,7 +554,6 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
         isStopped = true;
         if (page && !page.isClosed()) await page.close();
         if (browser) await browser.close();
-        if (release) await release();
     }
 }
 
@@ -613,4 +573,4 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis MIỀN NAM');
     process.exit(0);
 });
-//phiên bản này đã ổn đã sài được. 
+//phiên bản này cần test thử. 22/06
