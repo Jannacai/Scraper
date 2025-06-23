@@ -192,7 +192,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         }
         const formattedDate = date.replace(/\//g, '-');
 
-        const isLiveWindow = new Date().getHours() === 18 && new Date().getMinutes() >= 13 && new Date().getMinutes() <= 32;
+        const isLiveWindow = new Date().getHours() === 18 && new Date().getMinutes() >= 14 && new Date().getMinutes() <= 34;
         const intervalMs = isTestMode || isLiveWindow ? 2000 : 2000;
         console.log(`intervalMs: ${intervalMs}ms (isLiveWindow: ${isLiveWindow}, isTestMode: ${isTestMode})`);
 
@@ -411,7 +411,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
             if (!isStopped) {
                 isStopped = true;
                 clearInterval(intervalId);
-                console.log(`Dữ liệu ngày ${date} cho ${station} dừng sau 17 phút.`);
+                console.log(`Dữ liệu ngày ${date} cho ${station} dừng sau 20 phút.`);
                 await saveToMongoDB(formattedResult);
                 await setRedisExpiration(formatDateToDDMMYYYY(dateObj));
 
@@ -429,7 +429,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                 if (page && !page.isClosed()) await page.close();
                 if (browser) await browser.close();
             }
-        }, 17 * 60 * 1000);
+        }, 20 * 60 * 1000);
 
     } catch (error) {
         console.error(`Lỗi khi khởi động scraper ngày ${date}:`, error.message);

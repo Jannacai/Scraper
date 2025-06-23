@@ -15,46 +15,6 @@ const redisClient = redis.createClient({
 });
 redisClient.connect().catch(err => console.error('Lỗi kết nối Redis:', err.message));
 
-// Danh sách tỉnh theo ngày
-const provincesByDay = {
-    1: [
-        { tinh: 'tphcm', tentinh: 'TP.HCM' },
-        { tinh: 'dong-thap', tentinh: 'Đồng Tháp' },
-        { tinh: 'ca-mau', tentinh: 'Cà Mau' }
-    ],
-    2: [
-        { tinh: 'ben-tre', tentinh: 'Bến Tre' },
-        { tinh: 'vung-tau', tentinh: 'Vũng Tàu' },
-        { tinh: 'bac-lieu', tentinh: 'Bạc Liêu' }
-    ],
-    3: [
-        { tinh: 'dong-nai', tentinh: 'Đồng Nai' },
-        { tinh: 'can-tho', tentinh: 'Cần Thơ' },
-        { tinh: 'soc-trang', tentinh: 'Sóc Trăng' }
-    ],
-    4: [
-        { tinh: 'tay-ninh', tentinh: 'Tây Ninh' },
-        { tinh: 'an-giang', tentinh: 'An Giang' },
-        { tinh: 'binh-thuan', tentinh: 'Bình Thuận' }
-    ],
-    5: [
-        { tinh: 'vinh-long', tentinh: 'Vĩnh Long' },
-        { tinh: 'binh-duong', tentinh: 'Bình Dương' },
-        { tinh: 'tra-vinh', tentinh: 'Trà Vinh' }
-    ],
-    6: [
-        { tinh: 'tphcm', tentinh: 'TP.HCM' },
-        { tinh: 'long-an', tentinh: 'Long An' },
-        { tinh: 'binh-phuoc', tentinh: 'Bình Phước' },
-        { tinh: 'hau-giang', tentinh: 'Hậu Giang' }
-    ],
-    0: [
-        { tinh: 'tien-giang', tentinh: 'Tiền Giang' },
-        { tinh: 'kien-giang', tentinh: 'Kiên Giang' },
-        { tinh: 'da-lat', tentinh: 'Đà Lạt' }
-    ]
-};
-
 // Chuyển đổi tên tỉnh sang kebab-case
 function toKebabCase(str) {
     return str
@@ -200,23 +160,8 @@ async function logPerformance(startTime, iteration, success) {
     }
 }
 
-// Log chi tiết dữ liệu
-function logDataDetails(province, data) {
-    console.log(`Dữ liệu cho tỉnh ${province}:`, {
-        eightPrizes: data.eightPrizes,
-        sevenPrizes: data.sevenPrizes,
-        sixPrizes: data.sixPrizes,
-        fivePrizes: data.fivePrizes,
-        fourPrizes: data.fourPrizes,
-        threePrizes: data.threePrizes,
-        secondPrize: data.secondPrize,
-        firstPrize: data.firstPrize,
-        specialPrize: data.specialPrize,
-    });
-}
-
 // Hàm cào dữ liệu XSMN
-async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
+async function scrapeXSMN(date, station, isTestMode = false) {
     let browser;
     let page;
     let intervalId;
@@ -251,12 +196,7 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
 
         await connectMongoDB();
 
-        const targetProvinces = provinces && provinces.length > 0 ? provinces : provincesByDay[dateObj.getDay()] || [];
-        if (!targetProvinces || targetProvinces.length === 0) {
-            throw new Error(`Không tìm thấy danh sách tỉnh cho ngày ${date}`);
-        }
-
-        const isLiveWindow = new Date().getHours() === 16 && new Date().getMinutes() >= 15 && new Date().getMinutes() <= 35;
+        const isLiveWindow = new Date().getHours() === 16 && new Date().getMinutes() >= 12 && new Date().getMinutes() <= 37;
         const intervalMs = isTestMode || isLiveWindow ? 2000 : 2000;
         console.log(`intervalMs: ${intervalMs}ms (isLiveWindow: ${isLiveWindow}, isTestMode: ${isTestMode})`);
 
@@ -380,7 +320,7 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
                 const dayOfWeek = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][dayOfWeekIndex] || 'Thứ 2';
                 let allProvincesComplete = true;
 
-                for (const { tentinh, tinh } of targetProvinces) {
+                for (const tentinh of result.provinces) {
                     if (!lastPrizeDataByProvince[tentinh]) {
                         lastPrizeDataByProvince[tentinh] = {
                             eightPrizes: Array(prizeLimits.eightPrizes).fill('...'),
@@ -417,12 +357,7 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
                         };
                     }
 
-                    if (!result.provinces.includes(tentinh)) {
-                        console.warn(`Không tìm thấy dữ liệu cho tỉnh ${tentinh}, bỏ qua.`);
-                        allProvincesComplete = false;
-                        continue;
-                    }
-
+                    const tinh = toKebabCase(tentinh);
                     const slug = `xsmn-${formattedDate}-${tinh}`;
 
                     const formattedResult = {
@@ -445,8 +380,6 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
                         station,
                         createdAt: new Date(),
                     };
-
-                    logDataDetails(tentinh, formattedResult);
 
                     const prizeTypes = [
                         { key: 'eightPrizes', data: formattedResult.eightPrizes, isArray: true, minLength: 1 },
@@ -533,7 +466,7 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
             if (!isStopped) {
                 isStopped = true;
                 clearInterval(intervalId);
-                console.log(`Dữ liệu ngày ${date} cho ${station} dừng sau 17 phút.`);
+                console.log(`Dữ liệu ngày ${date} cho ${station} dừng sau 25 phút.`);
                 const totalDuration = (Date.now() - startTime) / 1000;
                 const stats = await pidusage(process.pid);
                 console.log('Tổng hiệu suất scraper:', {
@@ -547,7 +480,7 @@ async function scrapeXSMN(date, station, isTestMode = false, provinces = null) {
                 if (page && !page.isClosed()) await page.close();
                 if (browser) await browser.close();
             }
-        }, 17 * 60 * 1000);
+        }, 25 * 60 * 1000);
 
     } catch (error) {
         console.error(`Lỗi khi khởi động scraper ngày ${date}:`, error.message);
@@ -573,4 +506,4 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis MIỀN NAM');
     process.exit(0);
 });
-//phiên bản này cần test thử. 22/06
+//  cần test thử 23/06
