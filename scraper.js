@@ -192,8 +192,8 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         }
         const formattedDate = date.replace(/\//g, '-');
 
-        const isLiveWindow = new Date().getHours() === 18 && new Date().getMinutes() >= 13 && new Date().getMinutes() <= 32;
-        const intervalMs = isTestMode || isLiveWindow ? 2000 : 2000;
+        const isLiveWindow = new Date().getHours() === 18 && new Date().getMinutes() >= 14 && new Date().getMinutes() <= 32;
+        const intervalMs = isTestMode || isLiveWindow ? 1000 : 1000;
         console.log(`intervalMs: ${intervalMs}ms (isLiveWindow: ${isLiveWindow}, isTestMode: ${isTestMode})`);
 
         await connectMongoDB();

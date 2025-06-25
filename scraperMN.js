@@ -196,8 +196,8 @@ async function scrapeXSMN(date, station, isTestMode = false) {
 
         await connectMongoDB();
 
-        const isLiveWindow = new Date().getHours() === 16 && new Date().getMinutes() >= 12 && new Date().getMinutes() <= 37;
-        const intervalMs = isTestMode || isLiveWindow ? 2000 : 2000;
+        const isLiveWindow = new Date().getHours() === 16 && new Date().getMinutes() >= 14 && new Date().getMinutes() <= 40;
+        const intervalMs = isTestMode || isLiveWindow ? 1000 : 1000;
         console.log(`intervalMs: ${intervalMs}ms (isLiveWindow: ${isLiveWindow}, isTestMode: ${isTestMode})`);
 
         browser = await puppeteer.launch({
