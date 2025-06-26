@@ -350,7 +350,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                                 lastPrizeData[key][index] = prize;
                             }
                         }
-                    } else if (data && data !== '...' && data !== '' && data !== lastPrizeData[key]) {
+                    } else if (data !== lastPrizeData[key]) {
                         changes.push({ key, data });
                         lastPrizeData[key] = data;
                     }
@@ -456,4 +456,4 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis MIỀN BẮC');
     process.exit(0);
 });
-// đã cào ổn, chỉ bị mỗi maDB chưa sửa.(phiên bản hiện tại đang sử dụng đã sửa) : phiên bản này chưa 19/6
+// PHIÊN NÀY SỬA MÃ ĐẶC BIỆT và tăng interval lên 1s so với 2s trước đó.CẦN TEST 26/06
