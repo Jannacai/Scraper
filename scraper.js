@@ -4,7 +4,7 @@ const redis = require('redis');
 const pidusage = require('pidusage');
 const { connectMongoDB, isConnected } = require('./db');
 require('dotenv').config();
-
+// sửa lỗi sau test 27/6 rồi: sau khi cào xong phần tử 3 của giải 7, maDB không được cào tiếp tục.
 process.env.TZ = 'Asia/Ho_Chi_Minh';
 
 const XSMB = require('./src/models/XS_MB.models');
