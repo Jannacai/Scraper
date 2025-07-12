@@ -192,7 +192,10 @@ async function scrapeXSMN(date, station, isTestMode = false) {
         if (isNaN(dateObj.getTime())) {
             throw new Error('Ngày không hợp lệ: ' + date);
         }
-        const formattedDate = date.replace(/\//g, '-');
+        const formattedDate = formatDateToDDMMYYYY(dateObj).replace(/-/g, '');
+        const dayOfWeekIndex = dateObj.getDay();
+        const daysOfWeek = ['chu-nhat', 'thu-2', 'thu-3', 'thu-4', 'thu-5', 'thu-6', 'thu-7'];
+        const dayOfWeekUrl = daysOfWeek[dayOfWeekIndex];
 
         await connectMongoDB();
 
@@ -209,22 +212,22 @@ async function scrapeXSMN(date, station, isTestMode = false) {
 
         let baseUrl;
         if (station.toLowerCase() === 'xsmn') {
-            baseUrl = `https://xosovn.com/xsmn-${formattedDate}`;
+            baseUrl = `https://xoso.com.vn/xsmn-${dayOfWeekUrl}.html`;
             console.log(`Đang cào dữ liệu từ: ${baseUrl}`);
         } else {
             throw new Error('Chỉ hỗ trợ đài xsmn trong phiên bản này');
         }
 
         const selectors = {
-            eightPrizes: 'span[class*="v-g8"]',
-            sevenPrizes: 'span[class*="v-g7"]',
-            sixPrizes: 'span[class*="v-g6-"]',
-            fivePrizes: 'span[class*="v-g5"]',
-            fourPrizes: 'span[class*="v-g4-"]',
-            threePrizes: 'span[class*="v-g3-"]',
-            secondPrize: 'span[class*="v-g2"]',
-            firstPrize: 'span[class*="v-g1"]',
-            specialPrize: 'span[class*="v-gdb"]',
+            eightPrizes: 'span.xs_prize1[id*="_prize8_item"]',
+            sevenPrizes: 'span.xs_prize1[id*="_prize7_item"]',
+            sixPrizes: 'span.xs_prize1[id*="_prize6_item"]',
+            fivePrizes: 'span.xs_prize1[id*="_prize5_item"]',
+            fourPrizes: 'span.xs_prize1[id*="_prize4_item"]',
+            threePrizes: 'span.xs_prize1[id*="_prize3_item"]',
+            secondPrize: 'span.xs_prize1[id*="_prize2_item"]',
+            firstPrize: 'span.xs_prize1[id*="_prize1_item"]',
+            specialPrize: 'span.xs_prize1[id*="_prize_Db_item"]',
         };
 
         const prizeLimits = {
@@ -253,61 +256,75 @@ async function scrapeXSMN(date, station, isTestMode = false) {
             try {
                 if (iteration === 1) {
                     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 7000 });
-                    await page.waitForSelector('table.kqsx-mt tr.bg-pr', { timeout: 2000 }).catch(() => {
-                        console.log('Chưa thấy hàng tỉnh, tiếp tục cào...');
+                    await page.waitForSelector(`div#mn_kqngay_${formattedDate}_kq table.table-result.table-xsmn`, { timeout: 2000 }).catch(() => {
+                        console.log('Chưa thấy bảng kết quả, tiếp tục cào...');
                     });
                 } else {
-                    await page.waitForSelector('table.kqsx-mt tr.bg-pr', { timeout: 2000 }).catch(() => {
-                        console.log('Chưa thấy hàng tỉnh, tiếp tục cào...');
+                    await page.waitForSelector(`div#mn_kqngay_${formattedDate}_kq table.table-result.table-xsmn`, { timeout: 2000 }).catch(() => {
+                        console.log('Chưa thấy bảng kết quả, tiếp tục cào...');
                     });
                 }
 
-                const result = await page.evaluate(({ selectors, prizeLimits }) => {
-                    const getPrizeForProvince = (selector, provinceIndex, limit) => {
+                const result = await page.evaluate(({ selectors, prizeLimits, formattedDate }) => {
+                    // Định nghĩa getProvinceCode trong môi trường trình duyệt
+                    const getProvinceCode = (provinceName) => {
+                        if (provinceName === 'TPHCM') return 'HCM';
+                        return provinceName
+                            .normalize('NFD')
+                            .replace(/[\u0300-\u036f]/g, '')
+                            .replace(/đ/g, 'd')
+                            .replace(/Đ/g, 'D')
+                            .split(/\s+/)
+                            .map(word => word[0].toUpperCase())
+                            .join('');
+                    };
+
+                    const getPrizeForProvince = (selector, provinceCode, limit) => {
                         try {
                             const elements = document.querySelectorAll(selector);
-                            const prizeIndex = provinceIndex * limit;
                             return Array.from(elements)
-                                .slice(prizeIndex, prizeIndex + limit)
-                                .map(elem => elem.getAttribute('data-id')?.trim() || '')
+                                .filter(elem => elem.id.startsWith(`${provinceCode}_`))
+                                .slice(0, limit)
+                                .map(elem => elem.getAttribute('data-loto')?.trim() || '')
                                 .filter(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
                         } catch (error) {
-                            console.error(`Lỗi lấy selector ${selector} cho tỉnh thứ ${provinceIndex}:`, error.message);
+                            console.error(`Lỗi lấy selector ${selector} cho tỉnh ${provinceCode}:`, error.message);
                             return [];
                         }
                     };
 
                     const provinces = [];
-                    const provinceRow = document.querySelector('table.kqsx-mt tr.bg-pr');
-                    if (!provinceRow) {
+                    const provinceRow = document.querySelectorAll(`div#mn_kqngay_${formattedDate}_kq table.table-result.table-xsmn thead tr th.prize-col4 h3 a`);
+                    if (!provinceRow.length) {
                         return { provinces, provincesData: {}, drawDate: '' };
                     }
-                    provinceRow.querySelectorAll('th').forEach((elem, i) => {
-                        if (i === 0) return;
-                        const provinceName = elem.querySelector('a')?.textContent.trim();
+                    provinceRow.forEach(elem => {
+                        const provinceName = elem.textContent.trim();
                         if (provinceName && !provinceName.startsWith('Tỉnh_')) {
                             provinces.push(provinceName);
                         }
                     });
 
                     const provincesData = {};
-                    provinces.forEach((province, index) => {
+                    provinces.forEach(province => {
+                        const provinceCode = getProvinceCode(province);
                         provincesData[province] = {
-                            eightPrizes: getPrizeForProvince(selectors.eightPrizes, index, prizeLimits.eightPrizes),
-                            sevenPrizes: getPrizeForProvince(selectors.sevenPrizes, index, prizeLimits.sevenPrizes),
-                            sixPrizes: getPrizeForProvince(selectors.sixPrizes, index, prizeLimits.sixPrizes),
-                            fivePrizes: getPrizeForProvince(selectors.fivePrizes, index, prizeLimits.fivePrizes),
-                            fourPrizes: getPrizeForProvince(selectors.fourPrizes, index, prizeLimits.fourPrizes),
-                            threePrizes: getPrizeForProvince(selectors.threePrizes, index, prizeLimits.threePrizes),
-                            secondPrize: getPrizeForProvince(selectors.secondPrize, index, prizeLimits.secondPrize),
-                            firstPrize: getPrizeForProvince(selectors.firstPrize, index, prizeLimits.firstPrize),
-                            specialPrize: getPrizeForProvince(selectors.specialPrize, index, prizeLimits.specialPrize),
+                            eightPrizes: getPrizeForProvince(selectors.eightPrizes, provinceCode, prizeLimits.eightPrizes),
+                            sevenPrizes: getPrizeForProvince(selectors.sevenPrizes, provinceCode, prizeLimits.sevenPrizes),
+                            sixPrizes: getPrizeForProvince(selectors.sixPrizes, provinceCode, prizeLimits.sixPrizes),
+                            fivePrizes: getPrizeForProvince(selectors.fivePrizes, provinceCode, prizeLimits.fivePrizes),
+                            fourPrizes: getPrizeForProvince(selectors.fourPrizes, provinceCode, prizeLimits.fourPrizes),
+                            threePrizes: getPrizeForProvince(selectors.threePrizes, provinceCode, prizeLimits.threePrizes),
+                            secondPrize: getPrizeForProvince(selectors.secondPrize, provinceCode, prizeLimits.secondPrize),
+                            firstPrize: getPrizeForProvince(selectors.firstPrize, provinceCode, prizeLimits.firstPrize),
+                            specialPrize: getPrizeForProvince(selectors.specialPrize, provinceCode, prizeLimits.specialPrize),
                         };
                     });
 
-                    const drawDate = document.querySelector('.ngay_quay, .draw-date, .date, h1.df-title')?.textContent.trim().match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || '';
+                    const drawDateDiv = document.querySelector(`div#mn_kqngay_${formattedDate}_kq`);
+                    const drawDate = drawDateDiv ? `${formattedDate.slice(0, 2)}/${formattedDate.slice(2, 4)}/${formattedDate.slice(4)}` : '';
                     return { provinces, provincesData, drawDate };
-                }, { selectors, prizeLimits });
+                }, { selectors, prizeLimits, formattedDate });
 
                 if (result.provinces.length === 0) {
                     console.log('Không tìm thấy tỉnh nào, tiếp tục cào...');
@@ -358,7 +375,7 @@ async function scrapeXSMN(date, station, isTestMode = false) {
                     }
 
                     const tinh = toKebabCase(tentinh);
-                    const slug = `xsmn-${formattedDate}-${tinh}`;
+                    const slug = `xsmn-${formatDateToDDMMYYYY(dateObj)}-${tinh}`;
 
                     const formattedResult = {
                         drawDate: dateObj,
@@ -498,7 +515,7 @@ if (date && station) {
     console.log(`Chạy thủ công cho ngày ${date} và đài ${station}${isTestMode ? ' (chế độ thử nghiệm)' : ''}`);
     scrapeXSMN(date, station, isTestMode);
 } else {
-    console.log('Chạy thủ công: node xsmn_scraper.js 06/05/2025 xsmn [test]');
+    console.log('Chạy thủ công: node xsmn_scraper.js 12/07/2025 xsmn [test]');
 }
 
 process.on('SIGINT', async () => {
@@ -506,4 +523,3 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis MIỀN NAM');
     process.exit(0);
 });
-//  cần test thử 23/06

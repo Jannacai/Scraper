@@ -4,7 +4,7 @@ const redis = require('redis');
 const pidusage = require('pidusage');
 const { connectMongoDB, isConnected } = require('./db');
 require('dotenv').config();
-// sửa lỗi sau test 27/6 rồi: sau khi cào xong phần tử 3 của giải 7, maDB không được cào tiếp tục.
+
 process.env.TZ = 'Asia/Ho_Chi_Minh';
 
 const XSMB = require('./src/models/XS_MB.models');
@@ -206,26 +206,37 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124');
 
-        let baseUrl, dateHash;
+        let baseUrl;
         if (station.toLowerCase() === 'xsmb') {
-            baseUrl = `https://xosovn.com/xsmb-${formattedDate}`;
-            dateHash = `#kqngay_${formattedDate.split('-').join('')}`;
+            baseUrl = `https://www.minhngoc.net.vn/xo-so-truc-tiep/mien-bac.html`;
             console.log(`Đang cào dữ liệu từ: ${baseUrl}`);
         } else {
             throw new Error('Chỉ hỗ trợ đài xsmb trong phiên bản này');
         }
 
         const selectors = {
-            firstPrize: `${dateHash} span[class*="v-g1"]`,
-            secondPrize: `${dateHash} span[class*="v-g2-"]`,
-            threePrizes: `${dateHash} span[class*="v-g3-"]`,
-            fourPrizes: `${dateHash} span[class*="v-g4-"]`,
-            fivePrizes: `${dateHash} span[class*="v-g5-"]`,
-            sixPrizes: `${dateHash} span[class*="v-g6-"]`,
-            sevenPrizes: `${dateHash} span[class*="v-g7-"]`,
-            maDB: `${dateHash} span[class*="v-madb"]:first-child`,
-            specialPrize: `${dateHash} span[class*="v-gdb"]`,
+            firstPrize: `div[id="giai1_50"]`,
+            secondPrize: `div[id*="giai2_"]`,
+            threePrizes: `div[id*="giai3_"]`,
+            fourPrizes: `div[id*="giai4_"]`,
+            fivePrizes: `div[id*="giai5_"]`,
+            sixPrizes: `div[id*="giai6_"]`,
+            sevenPrizes: `div[id*="giai7_"]`,
+            maDB: `span[id="loaive_50"]`,
+            specialPrize: `div[id="giaidb_50"]`,
         };
+
+        const prizeOrder = [
+            'firstPrize',
+            'secondPrize',
+            'threePrizes',
+            'fourPrizes',
+            'fivePrizes',
+            'sixPrizes',
+            'sevenPrizes',
+            'maDB',
+            'specialPrize',
+        ];
 
         const scrapeAndSave = async () => {
             if (isStopped || (page && page.isClosed())) {
@@ -241,34 +252,34 @@ async function scrapeXSMB(date, station, isTestMode = false) {
             try {
                 if (iteration === 1) {
                     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 7000 });
-                    await page.waitForSelector(`${dateHash} span[class*="v-madb"]`, { timeout: 2000 }).catch(() => {
+                    await page.waitForSelector(selectors.maDB, { timeout: 5000 }).catch(() => {
                         console.log('Chưa thấy maDB, tiếp tục cào...');
                     });
                 } else {
-                    await page.waitForSelector(dateHash, { timeout: 2000 }).catch(() => {
-                        console.log('Chưa thấy dateHash, tiếp tục cào...');
+                    await page.waitForSelector(selectors.specialPrize, { timeout: 5000 }).catch(() => {
+                        console.log('Chưa thấy giải đặc biệt, tiếp tục cào...');
                     });
                 }
 
-                // Định nghĩa thứ tự cào cố định
-                const prizeOrder = [
-                    'firstPrize',
-                    'secondPrize',
-                    'threePrizes',
-                    'fourPrizes',
-                    'fivePrizes',
-                    'sixPrizes',
-                    'sevenPrizes',
-                    'maDB',
-                    'specialPrize',
-                ].filter(key => !completedPrizes[key]);
+                // Chờ dữ liệu maDB tải không đồng bộ
+                await page.evaluate((maDBSelector) => new Promise(resolve => {
+                    const checkMaDB = () => {
+                        const maDBElement = document.querySelector(maDBSelector);
+                        if (maDBElement && maDBElement.textContent.trim() !== '...' && maDBElement.textContent.trim() !== '****') {
+                            resolve();
+                        } else {
+                            setTimeout(checkMaDB, 500);
+                        }
+                    };
+                    checkMaDB();
+                }), selectors.maDB).catch(() => console.log('Không thể chờ maDB, tiếp tục...'));
 
-                const result = await page.evaluate(({ dateHash, selectors, prizeOrder }) => {
+                const result = await page.evaluate(({ selectors, prizeOrder }) => {
                     const getPrizes = (selector) => {
                         try {
                             const elements = document.querySelectorAll(selector);
                             return Array.from(elements)
-                                .map(elem => elem.getAttribute('data-id')?.trim() || '')
+                                .map(elem => elem.getAttribute('data')?.trim() || '')
                                 .filter(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
                         } catch (error) {
                             console.error(`Lỗi lấy selector ${selector}:`, error.message);
@@ -276,7 +287,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                         }
                     };
 
-                    const result = { drawDate: document.querySelector('.ngay_quay')?.textContent.trim() || '' };
+                    const result = { drawDate: document.querySelector('.tngay')?.textContent.trim().replace('Ngày: ', '') || '' };
                     for (const prizeType of prizeOrder) {
                         if (prizeType === 'maDB') {
                             const maDBElement = document.querySelector(selectors.maDB);
@@ -286,7 +297,9 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                         }
                     }
                     return result;
-                }, { dateHash, selectors, prizeOrder });
+                }, { selectors, prizeOrder });
+
+                console.log(`maDB hiện tại: ${result.maDB}, stableCount: ${stableCounts.maDB}, completed: ${completedPrizes.maDB}`);
 
                 const dayOfWeekIndex = dateObj.getDay();
                 let tinh, tentinh;
@@ -324,6 +337,17 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     station,
                     createdAt: new Date(),
                 };
+
+                // Thử lại cào maDB nếu chưa hoàn thành
+                if (!completedPrizes.maDB && iteration % 5 === 0) {
+                    console.log('Thử lại cào maDB...');
+                    const maDBElement = await page.$eval(selectors.maDB, el => el.textContent.trim()).catch(() => '...');
+                    if (maDBElement !== '...' && maDBElement !== '****' && maDBElement !== '') {
+                        formattedResult.maDB = maDBElement;
+                        lastPrizeData.maDB = maDBElement;
+                        changes.push({ key: 'maDB', data: maDBElement });
+                    }
+                }
 
                 const prizeTypes = [
                     { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true, minLength: 1 },
@@ -456,4 +480,3 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis MIỀN BẮC');
     process.exit(0);
 });
-// PHIÊN NÀY SỬA MÃ ĐẶC BIỆT và tăng interval lên 1s so với 2s trước đó.CẦN TEST 26/06
