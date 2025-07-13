@@ -215,15 +215,15 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         }
 
         const selectors = {
-            firstPrize: `div[id="giai1_50"]`,
+            firstPrize: `div[id="giai1_51"]`,
             secondPrize: `div[id*="giai2_"]`,
             threePrizes: `div[id*="giai3_"]`,
             fourPrizes: `div[id*="giai4_"]`,
             fivePrizes: `div[id*="giai5_"]`,
             sixPrizes: `div[id*="giai6_"]`,
             sevenPrizes: `div[id*="giai7_"]`,
-            maDB: `span[id="loaive_50"]`,
-            specialPrize: `div[id="giaidb_50"]`,
+            maDB: `span[id="loaive_51"]`,
+            specialPrize: `div[id="giaidb_51"]`,
         };
 
         const prizeOrder = [
