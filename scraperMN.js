@@ -212,7 +212,9 @@ async function scrapeXSMN(date, station, isTestMode = false) {
 
         let baseUrl;
         if (station.toLowerCase() === 'xsmn') {
-            baseUrl = `https://xoso.com.vn/xsmn-${dayOfWeekUrl}.html`;
+            baseUrl = dayOfWeekIndex === 0
+                ? `https://xoso.com.vn/xsmn-chu-nhat-cn.html`
+                : `https://xoso.com.vn/xsmn-${dayOfWeekUrl}.html`;
             console.log(`Đang cào dữ liệu từ: ${baseUrl}`);
         } else {
             throw new Error('Chỉ hỗ trợ đài xsmn trong phiên bản này');
@@ -294,7 +296,7 @@ async function scrapeXSMN(date, station, isTestMode = false) {
                     };
 
                     const provinces = [];
-                    const provinceRow = document.querySelectorAll(`div#mn_kqngay_${formattedDate}_kq table.table-result.table-xsmn thead tr th.prize-col4 h3 a`);
+                    const provinceRow = document.querySelectorAll(`div#mn_kqngay_${formattedDate}_kq table.table-result.table-xsmn thead tr th h3 a`);
                     if (!provinceRow.length) {
                         return { provinces, provincesData: {}, drawDate: '' };
                     }
