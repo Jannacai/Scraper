@@ -24,13 +24,20 @@ function formatDateToDDMMYYYY(date) {
 
 function isDataComplete(result, completedPrizes, stableCounts) {
     const checkPrize = (key, data, minLength) => {
-        const isValid = Array.isArray(data) && data.length >= minLength && data.every(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
+        const isValid = Array.isArray(data) &&
+            data.length >= minLength &&
+            data.every(prize => prize && prize !== '...' && !/\*+/.test(prize) && !/\+/.test(prize) && /^\d+$/.test(prize));
         stableCounts[key] = isValid ? (stableCounts[key] || 0) + 1 : 0;
         completedPrizes[key] = isValid && stableCounts[key] >= (key === 'specialPrize' ? 2 : 1);
         return isValid;
     };
 
-    const isValidMaDB = result.maDB && typeof result.maDB === 'string' && result.maDB.trim() !== '' && result.maDB.trim() !== '...';
+    const isValidMaDB = result.maDB &&
+        typeof result.maDB === 'string' &&
+        result.maDB.trim() !== '' &&
+        result.maDB.trim() !== '...' &&
+        !/\*+/.test(result.maDB) &&
+        !/\+/.test(result.maDB);
     stableCounts.maDB = isValidMaDB ? (stableCounts.maDB || 0) + 1 : 0;
     completedPrizes.maDB = isValidMaDB && stableCounts.maDB >= 1;
 
@@ -43,7 +50,9 @@ function isDataComplete(result, completedPrizes, stableCounts) {
     checkPrize('sevenPrizes', result.sevenPrizes || [], 4);
     checkPrize('specialPrize', result.specialPrize || [], 1);
 
-    const isComplete = completedPrizes.maDB && result.tentinh && result.tentinh.length >= 1 &&
+    const isComplete = completedPrizes.maDB &&
+        result.tentinh &&
+        result.tentinh.length >= 1 &&
         Object.keys(completedPrizes).every(k => completedPrizes[k]);
     if (isComplete) console.log('Dữ liệu hoàn thành');
     return isComplete;
@@ -215,15 +224,16 @@ async function scrapeXSMB(date, station, isTestMode = false) {
         }
 
         const selectors = {
-            firstPrize: `div[id="giai1_51"]`,
-            secondPrize: `div[id*="giai2_"]`,
-            threePrizes: `div[id*="giai3_"]`,
-            fourPrizes: `div[id*="giai4_"]`,
-            fivePrizes: `div[id*="giai5_"]`,
-            sixPrizes: `div[id*="giai6_"]`,
-            sevenPrizes: `div[id*="giai7_"]`,
-            maDB: `span[id="loaive_51"]`,
-            specialPrize: `div[id="giaidb_51"]`,
+            firstPrize: 'tr:has(td.giai1l) td.giai1 div.giaiSo',
+            secondPrize: 'tr:has(td.giai2l) td.giai2 div.giaiSo',
+            threePrizes: 'tr:has(td.giai3l) td.giai3 div.giaiSo',
+            fourPrizes: 'tr:has(td.giai4l) td.giai4 div.giaiSo',
+            fivePrizes: 'tr:has(td.giai5l) td.giai5 div.giaiSo',
+            sixPrizes: 'tr:has(td.giai6l) td.giai6 div.giaiSo',
+            sevenPrizes: 'tr:has(td.giai7l) td.giai7 div.giaiSo',
+            maDB: 'div.loai_ve span:not(.tinh_loai_ve)',
+            specialPrize: 'tr:has(td.giaidbl) td.giaidb div.giaiSo',
+            tentinh: 'span.tinh_loai_ve a',
         };
 
         const prizeOrder = [
@@ -279,8 +289,8 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                         try {
                             const elements = document.querySelectorAll(selector);
                             return Array.from(elements)
-                                .map(elem => elem.getAttribute('data')?.trim() || '')
-                                .filter(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
+                                .map(elem => elem.getAttribute('data')?.trim() || elem.textContent.trim())
+                                .filter(prize => prize && prize !== '...' && prize !== '****' && (prize.match(/^\d+$/) || selector.includes('loai_ve')));
                         } catch (error) {
                             console.error(`Lỗi lấy selector ${selector}:`, error.message);
                             return [];
@@ -292,6 +302,9 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                         if (prizeType === 'maDB') {
                             const maDBElement = document.querySelector(selectors.maDB);
                             result.maDB = maDBElement ? maDBElement.textContent.trim() : '...';
+                        } else if (prizeType === 'tentinh') {
+                            const tentinhElement = document.querySelector(selectors.tentinh);
+                            result.tentinh = tentinhElement ? tentinhElement.textContent.trim() : '';
                         } else {
                             result[prizeType] = getPrizes(selectors[prizeType]) || [];
                         }
@@ -324,7 +337,7 @@ async function scrapeXSMB(date, station, isTestMode = false) {
                     month: dateObj.getMonth() + 1,
                     dayOfWeek,
                     maDB: result.maDB || lastPrizeData.maDB,
-                    tentinh,
+                    tentinh: result.tentinh || tentinh,
                     tinh,
                     firstPrize: Array.isArray(result.firstPrize) && result.firstPrize.length ? result.firstPrize : lastPrizeData.firstPrize,
                     secondPrize: Array.isArray(result.secondPrize) && result.secondPrize.length ? result.secondPrize : lastPrizeData.secondPrize,

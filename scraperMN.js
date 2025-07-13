@@ -271,6 +271,9 @@ async function scrapeXSMN(date, station, isTestMode = false) {
                     // Định nghĩa getProvinceCode trong môi trường trình duyệt
                     const getProvinceCode = (provinceName) => {
                         if (provinceName === 'TPHCM') return 'HCM';
+                        if (provinceName === 'Bến Tre') return 'BTR';
+                        if (provinceName === 'Bình Thuận') return 'BTH';
+
                         return provinceName
                             .normalize('NFD')
                             .replace(/[\u0300-\u036f]/g, '')

@@ -289,8 +289,10 @@ async function scrapeXSMT(date, station, isTestMode = false) {
                         if (provinceName === 'Huế') return 'TTH';
                         if (provinceName === 'Kon Tum') return 'KT';
                         if (provinceName === 'Khánh Hòa') return 'KH';
-                        if (provinceName === 'TPHCM') return 'HCM';
                         if (provinceName === 'Quảng Ngãi') return 'QNG';
+                        if (provinceName === 'Đắk Nông') return 'DNO';
+                        if (provinceName === 'Đà Nẵng') return 'DNA';
+                        if (provinceName === 'Quảng Nam') return 'QNA';
 
                         // Chuẩn hóa tên tỉnh
                         const normalized = provinceName

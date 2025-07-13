@@ -4,7 +4,7 @@
 // const pidusage = require('pidusage');
 // const { connectMongoDB, isConnected } = require('./db');
 // require('dotenv').config();
-// // sửa lỗi sau test 27/6 rồi: sau khi cào xong phần tử 3 của giải 7, maDB không được cào tiếp tục.
+
 // process.env.TZ = 'Asia/Ho_Chi_Minh';
 
 // const XSMB = require('./src/models/XS_MB.models');
@@ -24,7 +24,28 @@
 
 // function isDataComplete(result, completedPrizes, stableCounts) {
 //     const checkPrize = (key, data, minLength) => {
-//         const isValid = Array.isArray(data) && data.length >= minLength && data.every(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
+//         let invalidPattern;
+//         switch (key) {
+//             case 'firstPrize':
+//             case 'secondPrize':
+//             case 'threePrizes':
+//             case 'specialPrize':
+//                 invalidPattern = '*****'; // 5 dấu * cho giải nhất, nhì, ba, đặc biệt
+//                 break;
+//             case 'fourPrizes':
+//             case 'fivePrizes':
+//                 invalidPattern = '****'; // 4 dấu * cho giải tư, năm
+//                 break;
+//             case 'sixPrizes':
+//                 invalidPattern = '***'; // 3 dấu * cho giải sáu
+//                 break;
+//             case 'sevenPrizes':
+//                 invalidPattern = '**'; // 2 dấu * cho giải bảy
+//                 break;
+//             default:
+//                 invalidPattern = '****'; // Mặc định (không áp dụng, để an toàn)
+//         }
+//         const isValid = Array.isArray(data) && data.length >= minLength && data.every(prize => prize && prize !== '...' && prize !== invalidPattern && /^\d+$/.test(prize));
 //         stableCounts[key] = isValid ? (stableCounts[key] || 0) + 1 : 0;
 //         completedPrizes[key] = isValid && stableCounts[key] >= (key === 'specialPrize' ? 2 : 1);
 //         return isValid;
@@ -206,26 +227,37 @@
 //         page = await browser.newPage();
 //         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124');
 
-//         let baseUrl, dateHash;
+//         let baseUrl;
 //         if (station.toLowerCase() === 'xsmb') {
-//             baseUrl = `https://xosovn.com/xsmb-${formattedDate}`;
-//             dateHash = `#kqngay_${formattedDate.split('-').join('')}`;
+//             baseUrl = `https://www.minhngoc.net.vn/xo-so-truc-tiep/mien-bac.html`;
 //             console.log(`Đang cào dữ liệu từ: ${baseUrl}`);
 //         } else {
 //             throw new Error('Chỉ hỗ trợ đài xsmb trong phiên bản này');
 //         }
 
 //         const selectors = {
-//             firstPrize: `${dateHash} span[class*="v-g1"]`,
-//             secondPrize: `${dateHash} span[class*="v-g2-"]`,
-//             threePrizes: `${dateHash} span[class*="v-g3-"]`,
-//             fourPrizes: `${dateHash} span[class*="v-g4-"]`,
-//             fivePrizes: `${dateHash} span[class*="v-g5-"]`,
-//             sixPrizes: `${dateHash} span[class*="v-g6-"]`,
-//             sevenPrizes: `${dateHash} span[class*="v-g7-"]`,
-//             maDB: `${dateHash} span[class*="v-madb"]:first-child`,
-//             specialPrize: `${dateHash} span[class*="v-gdb"]`,
+//             firstPrize: `div[id="giai1_51"]`,
+//             secondPrize: `div[id*="giai2_"]`,
+//             threePrizes: `div[id*="giai3_"]`,
+//             fourPrizes: `div[id*="giai4_"]`,
+//             fivePrizes: `div[id*="giai5_"]`,
+//             sixPrizes: `div[id*="giai6_"]`,
+//             sevenPrizes: `div[id*="giai7_"]`,
+//             maDB: `span[id="loaive_51"]`,
+//             specialPrize: `div[id="giaidb_51"]`,
 //         };
+
+//         const prizeOrder = [
+//             'firstPrize',
+//             'secondPrize',
+//             'threePrizes',
+//             'fourPrizes',
+//             'fivePrizes',
+//             'sixPrizes',
+//             'sevenPrizes',
+//             'maDB',
+//             'specialPrize',
+//         ];
 
 //         const scrapeAndSave = async () => {
 //             if (isStopped || (page && page.isClosed())) {
@@ -241,52 +273,75 @@
 //             try {
 //                 if (iteration === 1) {
 //                     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 7000 });
-//                     await page.waitForSelector(`${dateHash} span[class*="v-madb"]`, { timeout: 2000 }).catch(() => {
+//                     await page.waitForSelector(selectors.maDB, { timeout: 5000 }).catch(() => {
 //                         console.log('Chưa thấy maDB, tiếp tục cào...');
 //                     });
 //                 } else {
-//                     await page.waitForSelector(dateHash, { timeout: 2000 }).catch(() => {
-//                         console.log('Chưa thấy dateHash, tiếp tục cào...');
+//                     await page.waitForSelector(selectors.specialPrize, { timeout: 5000 }).catch(() => {
+//                         console.log('Chưa thấy giải đặc biệt, tiếp tục cào...');
 //                     });
 //                 }
 
-//                 // Định nghĩa thứ tự cào cố định
-//                 const prizeOrder = [
-//                     'firstPrize',
-//                     'secondPrize',
-//                     'threePrizes',
-//                     'fourPrizes',
-//                     'fivePrizes',
-//                     'sixPrizes',
-//                     'sevenPrizes',
-//                     'maDB',
-//                     'specialPrize',
-//                 ].filter(key => !completedPrizes[key]);
+//                 // Chờ dữ liệu maDB tải không đồng bộ
+//                 await page.evaluate((maDBSelector) => new Promise(resolve => {
+//                     const checkMaDB = () => {
+//                         const maDBElement = document.querySelector(maDBSelector);
+//                         if (maDBElement && maDBElement.textContent.trim() !== '...' && maDBElement.textContent.trim() !== '****') {
+//                             resolve();
+//                         } else {
+//                             setTimeout(checkMaDB, 500);
+//                         }
+//                     };
+//                     checkMaDB();
+//                 }), selectors.maDB).catch(() => console.log('Không thể chờ maDB, tiếp tục...'));
 
-//                 const result = await page.evaluate(({ dateHash, selectors, prizeOrder }) => {
-//                     const getPrizes = (selector) => {
+//                 const result = await page.evaluate(({ selectors, prizeOrder }) => {
+//                     const getPrizes = (selector, prizeType) => {
 //                         try {
+//                             let invalidPattern;
+//                             switch (prizeType) {
+//                                 case 'firstPrize':
+//                                 case 'secondPrize':
+//                                 case 'threePrizes':
+//                                 case 'specialPrize':
+//                                     invalidPattern = '*****'; // 5 dấu * cho giải nhất, nhì, ba, đặc biệt
+//                                     break;
+//                                 case 'fourPrizes':
+//                                 case 'fivePrizes':
+//                                     invalidPattern = '****'; // 4 dấu * cho giải tư, năm
+//                                     break;
+//                                 case 'sixPrizes':
+//                                     invalidPattern = '***'; // 3 dấu * cho giải sáu
+//                                     break;
+//                                 case 'sevenPrizes':
+//                                     invalidPattern = '**'; // 2 dấu * cho giải bảy
+//                                     break;
+//                                 default:
+//                                     invalidPattern = '****'; // Mặc định (không áp dụng, để an toàn)
+//                             }
 //                             const elements = document.querySelectorAll(selector);
 //                             return Array.from(elements)
-//                                 .map(elem => elem.getAttribute('data-id')?.trim() || '')
-//                                 .filter(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
+//                                 .map(elem => elem.getAttribute('data')?.trim() || '')
+//                                 .filter(prize => prize && prize !== '...' && prize !== invalidPattern && /^\d+$/.test(prize));
 //                         } catch (error) {
 //                             console.error(`Lỗi lấy selector ${selector}:`, error.message);
 //                             return [];
 //                         }
 //                     };
 
-//                     const result = { drawDate: document.querySelector('.ngay_quay')?.textContent.trim() || '' };
+//                     const result = { drawDate: document.querySelector('.tngay')?.textContent.trim().replace('Ngày: ', '') || '' };
 //                     for (const prizeType of prizeOrder) {
 //                         if (prizeType === 'maDB') {
 //                             const maDBElement = document.querySelector(selectors.maDB);
 //                             result.maDB = maDBElement ? maDBElement.textContent.trim() : '...';
 //                         } else {
-//                             result[prizeType] = getPrizes(selectors[prizeType]) || [];
+//                             result[prizeType] = getPrizes(selectors[prizeType], prizeType) || [];
 //                         }
 //                     }
 //                     return result;
-//                 }, { dateHash, selectors, prizeOrder });
+//                 }, { selectors, prizeOrder });
+
+//                 console.log(`maDB hiện tại: ${result.maDB}, stableCount: ${stableCounts.maDB}, completed: ${completedPrizes.maDB}`);
 
 //                 const dayOfWeekIndex = dateObj.getDay();
 //                 let tinh, tentinh;
@@ -325,6 +380,17 @@
 //                     createdAt: new Date(),
 //                 };
 
+//                 // Thử lại cào maDB nếu chưa hoàn thành
+//                 if (!completedPrizes.maDB && iteration % 5 === 0) {
+//                     console.log('Thử lại cào maDB...');
+//                     const maDBElement = await page.$eval(selectors.maDB, el => el.textContent.trim()).catch(() => '...');
+//                     if (maDBElement !== '...' && maDBElement !== '****' && maDBElement !== '') {
+//                         formattedResult.maDB = maDBElement;
+//                         lastPrizeData.maDB = maDBElement;
+//                         changes.push({ key: 'maDB', data: maDBElement });
+//                     }
+//                 }
+
 //                 const prizeTypes = [
 //                     { key: 'firstPrize', data: formattedResult.firstPrize, isArray: true, minLength: 1 },
 //                     { key: 'secondPrize', data: formattedResult.secondPrize, isArray: true, minLength: 2 },
@@ -345,7 +411,28 @@
 //                             continue;
 //                         }
 //                         for (const [index, prize] of data.entries()) {
-//                             if (prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize) && prize !== lastPrizeData[key][index]) {
+//                             let invalidPattern;
+//                             switch (key) {
+//                                 case 'firstPrize':
+//                                 case 'secondPrize':
+//                                 case 'threePrizes':
+//                                 case 'specialPrize':
+//                                     invalidPattern = '*****';
+//                                     break;
+//                                 case 'fourPrizes':
+//                                 case 'fivePrizes':
+//                                     invalidPattern = '****';
+//                                     break;
+//                                 case 'sixPrizes':
+//                                     invalidPattern = '***';
+//                                     break;
+//                                 case 'sevenPrizes':
+//                                     invalidPattern = '**';
+//                                     break;
+//                                 default:
+//                                     invalidPattern = '****';
+//                             }
+//                             if (prize && prize !== '...' && prize !== invalidPattern && /^\d+$/.test(prize) && prize !== lastPrizeData[key][index]) {
 //                                 changes.push({ key: `${key}_${index}`, data: prize });
 //                                 lastPrizeData[key][index] = prize;
 //                             }
@@ -456,4 +543,4 @@
 //     console.log('Đã đóng kết nối Redis MIỀN BẮC');
 //     process.exit(0);
 // });
-// // PHIÊN NÀY SỬA MÃ ĐẶC BIỆT và tăng interval lên 1s so với 2s trước đó.CẦN TEST 26/06
+// // chưa sửa dấu + 
