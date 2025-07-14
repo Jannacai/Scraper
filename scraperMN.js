@@ -502,7 +502,7 @@ async function scrapeXSMN(date, station, isTestMode = false) {
                 if (page && !page.isClosed()) await page.close();
                 if (browser) await browser.close();
             }
-        }, 25 * 60 * 1000);
+        }, 27 * 60 * 1000);
 
     } catch (error) {
         console.error(`Lỗi khi khởi động scraper ngày ${date}:`, error.message);

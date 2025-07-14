@@ -288,6 +288,12 @@ async function scrapeXSMT(date, station, isTestMode = false) {
                         // Xử lý đặc biệt cho các tỉnh
                         if (provinceName === 'Huế') return 'TTH';
                         if (provinceName === 'Kon Tum') return 'KT';
+                        if (provinceName === 'Phú Yên') return 'PY';
+                        if (provinceName === 'Đắk Lắk') return 'PY';
+                        if (provinceName === 'Bình Định') return 'BD';
+                        if (provinceName === 'Quảng Trị') return 'QT';
+                        if (provinceName === 'Ninh Thuận') return 'NT';
+                        if (provinceName === 'Gia Lai') return 'GL';
                         if (provinceName === 'Khánh Hòa') return 'KH';
                         if (provinceName === 'Quảng Ngãi') return 'QNG';
                         if (provinceName === 'Đắk Nông') return 'DNO';
