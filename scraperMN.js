@@ -273,6 +273,10 @@ async function scrapeXSMN(date, station, isTestMode = false) {
                         if (provinceName === 'TPHCM') return 'HCM';
                         if (provinceName === 'Bến Tre') return 'BTR';
                         if (provinceName === 'Bình Thuận') return 'BTH';
+                        if (provinceName === 'Đồng Nai') return 'DN';
+                        if (provinceName === 'Cần Thơ') return 'CT';
+                        if (provinceName === 'Sóc Trăng') return 'ST';
+
 
                         return provinceName
                             .normalize('NFD')
