@@ -1,13 +1,13 @@
 const express = require('express');
-const { scrapeXSMB } = require('../../../scraper');
+const { scrapeXSMT } = require('../../../scraperMT');
 const router = express.Router();
 
-console.log('scrapeXSMB:', scrapeXSMB); // Debug require
+console.log('scrapeXSMT:....', scrapeXSMT); // Debug require
 
 // Endpoint để kích hoạt cào dữ liệu theo ngày
-router.post('/scrape', async (req, res) => {
+router.post('/scrapeMT', async (req, res) => {
     try {
-        console.log('Received POST /api/scraper/scrape:', req.body); // Debug request
+        console.log('Received POST /api/scraperMT/xsmt/scrape:', req.body); // Debug request
         if (!req.body) {
             return res.status(400).json({ message: 'Request body is missing or invalid' });
         }
@@ -16,7 +16,7 @@ router.post('/scrape', async (req, res) => {
             return res.status(400).json({ message: 'Thiếu date hoặc station' });
         }
         console.log(`Bắt đầu cào dữ liệu cho ngày ${date}, đài ${station}`);
-        scrapeXSMB(date, station); // Chạy bất đồng bộ
+        scrapeXSMT(date, station); // Chạy bất đồng bộ
         res.status(200).json({ message: `Đã kích hoạt cào dữ liệu cho ngày ${date}, đài ${station}` });
     } catch (error) {
         console.error('Lỗi khi kích hoạt scraper:', error.message);
@@ -26,7 +26,7 @@ router.post('/scrape', async (req, res) => {
 
 // Endpoint để kiểm tra trạng thái scraper
 router.get('/status', (req, res) => {
-    res.status(200).json({ message: 'Scraper API is running' });
+    res.status(200).json({ message: 'XSMT Scraper API is running' });
 });
 
 module.exports = router;
