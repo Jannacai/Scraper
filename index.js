@@ -6,11 +6,6 @@ const compression = require('compression');
 const { connectMongoDB, closeMongoDB } = require('./db');
 require('dotenv').config();
 const routes = require('./src/routes/index');
-
-// Import scraper schedulers
-const scraperScheduler = require('./src/services/scraperScheduler');
-const scraperSchedulerMT = require('./src/services/scraperSchedulerMT');
-
 const app = express();
 
 // Middleware
@@ -28,141 +23,6 @@ connectMongoDB().catch(err => {
 });
 
 routes(app);
-
-// Thêm endpoint để kiểm tra trạng thái scheduler
-app.get('/api/scheduler/status', (req, res) => {
-    try {
-        const status = scraperScheduler.getStatus();
-        res.json({
-            success: true,
-            data: status,
-            message: 'Trạng thái scheduler'
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi lấy trạng thái scheduler',
-            error: error.message
-        });
-    }
-});
-
-// Thêm endpoint để kiểm tra trạng thái scheduler XSMT
-app.get('/api/scheduler/status-mt', (req, res) => {
-    try {
-        const status = scraperSchedulerMT.getStatus();
-        res.json({
-            success: true,
-            data: status,
-            message: 'Trạng thái scheduler XSMT'
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi lấy trạng thái scheduler XSMT',
-            error: error.message
-        });
-    }
-});
-
-// Thêm endpoint để khởi động lại scheduler
-app.post('/api/scheduler/restart', (req, res) => {
-    try {
-        scraperScheduler.restart();
-        res.json({
-            success: true,
-            message: 'Scheduler đã được khởi động lại'
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi khởi động lại scheduler',
-            error: error.message
-        });
-    }
-});
-
-// Thêm endpoint để khởi động lại scheduler XSMT
-app.post('/api/scheduler/restart-mt', (req, res) => {
-    try {
-        scraperSchedulerMT.restart();
-        res.json({
-            success: true,
-            message: 'Scheduler XSMT đã được khởi động lại'
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi khởi động lại scheduler XSMT',
-            error: error.message
-        });
-    }
-});
-
-// Thêm endpoint để chạy scraper thủ công
-app.post('/api/scheduler/run-now', async (req, res) => {
-    try {
-        const { date, station } = req.body;
-
-        if (!date) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu tham số date'
-            });
-        }
-
-        console.log(`🎯 Chạy scraper thủ công cho ngày ${date}, đài ${station}`);
-
-        // Chạy scraper trong background
-        scraperScheduler.runScraper().catch(error => {
-            console.error('Lỗi khi chạy scraper thủ công:', error);
-        });
-
-        res.json({
-            success: true,
-            message: `Đã kích hoạt scraper cho ngày ${date}, đài ${station}`
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi chạy scraper thủ công',
-            error: error.message
-        });
-    }
-});
-
-// Thêm endpoint để chạy scraper XSMT thủ công
-app.post('/api/scheduler/run-now-mt', async (req, res) => {
-    try {
-        const { date, station } = req.body;
-
-        if (!date) {
-            return res.status(400).json({
-                success: false,
-                message: 'Thiếu tham số date'
-            });
-        }
-
-        console.log(`🎯 Chạy scraper XSMT thủ công cho ngày ${date}, đài ${station}`);
-
-        // Chạy scraper trong background
-        scraperSchedulerMT.runScraper().catch(error => {
-            console.error('Lỗi khi chạy scraper XSMT thủ công:', error);
-        });
-
-        res.json({
-            success: true,
-            message: `Đã kích hoạt scraper XSMT cho ngày ${date}, đài ${station}`
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi chạy scraper XSMT thủ công',
-            error: error.message
-        });
-    }
-});
-
 app.use((req, res) => {
     res.status(404).json({ message: 'Route not found' });
 });
@@ -176,23 +36,10 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
     console.log(`Scraper API running on port ${PORT}`);
-    console.log('🚀 Scraper Scheduler XSMB đã được khởi động tự động (18h14)');
-    console.log('🚀 Scraper Scheduler XSMT đã được khởi động tự động (17h14)');
 });
 
 // Đóng kết nối khi server dừng
 process.on('SIGINT', async () => {
-    console.log('🛑 Đang dừng server...');
     await closeMongoDB();
-    scraperScheduler.stop();
-    scraperSchedulerMT.stop();
-    process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-    console.log('🛑 Đang dừng server...');
-    await closeMongoDB();
-    scraperScheduler.stop();
-    scraperSchedulerMT.stop();
     process.exit(0);
 });

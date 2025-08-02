@@ -5,10 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "test:scheduler": "node test_scheduler.js",
-    "benchmark:scheduler": "node benchmark_scheduler.js",
-    "dev": "nodemon index.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
@@ -30,8 +27,5 @@
     "redis": "^4.7.0",
     "user-agents": "^1.1.531",
     "ws": "^8.18.2"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.0"
   }
 }
