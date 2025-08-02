@@ -1,0 +1,16 @@
+{
+  "lastRun": "2025-08-02T10:53:36.734Z",
+  "nextRun": "2025-08-02T10:52:00.000Z",
+  "isRunning": false,
+  "lastError": null,
+  "totalRuns": 2,
+  "successfulRuns": 1,
+  "failedRuns": 0,
+  "performanceStats": {
+    "totalChecks": 1,
+    "successfulRuns": 1,
+    "failedRuns": 0,
+    "averageCheckTime": 0,
+    "lastCheckTime": 0
+  }
+}
