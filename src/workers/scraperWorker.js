@@ -5,9 +5,9 @@ const path = require('path');
 let scrapeXSMB, scrapeXSMT, scrapeXSMN;
 
 try {
-    const scraperPath = path.resolve(__dirname, '../../../XS_Scraper-api/scraper.js');
-    const scraperMTPath = path.resolve(__dirname, '../../../XS_Scraper-api/scraperMT.js');
-    const scraperMNPath = path.resolve(__dirname, '../../../XS_Scraper-api/scraperMN.js');
+    const scraperPath = path.resolve(__dirname, '../../scraper.js');
+    const scraperMTPath = path.resolve(__dirname, '../../scraperMT.js');
+    const scraperMNPath = path.resolve(__dirname, '../../scraperMN.js');
 
     const scraperModule = require(scraperPath);
     const scraperMTModule = require(scraperMTPath);
