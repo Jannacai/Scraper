@@ -73,7 +73,16 @@
 //         console.log(`Chuẩn bị gửi ${changes.length} thay đổi tới Redis với khóa: ${redisKey}`);
 //         const pipeline = redisClient.multi();
 //         for (const { key, data } of changes) {
-//             pipeline.publish(`xsmt:${today}:${tinh}`, JSON.stringify({ prizeType: key, prizeData: data, drawDate: today, tentinh, tinh, year, month }));
+//             // Publish vào kênh chung xsmt:${today}
+//             pipeline.publish(`xsmt:${today}`, JSON.stringify({
+//                 prizeType: key,
+//                 prizeData: data,
+//                 drawDate: today,
+//                 tentinh,
+//                 tinh,
+//                 year,
+//                 month
+//             }));
 //             pipeline.hSet(redisKey, key, JSON.stringify(data));
 //         }
 //         pipeline.hSet(`${redisKey}:meta`, 'metadata', JSON.stringify({ tentinh, tinh, year, month }));
@@ -224,22 +233,22 @@
 
 //         let baseUrl;
 //         if (station.toLowerCase() === 'xsmt') {
-//             baseUrl = `https://xosovn.com/xsmt-${formattedDate}`;
+//             baseUrl = `https://www.minhngoc.net.vn/xo-so-truc-tiep/mien-trung.html`;
 //             console.log(`Đang cào dữ liệu từ: ${baseUrl}`);
 //         } else {
 //             throw new Error('Chỉ hỗ trợ đài xsmt trong phiên bản này');
 //         }
 
 //         const selectors = {
-//             eightPrizes: 'span[class*="v-g8"]',
-//             sevenPrizes: 'span[class*="v-g7"]',
-//             sixPrizes: 'span[class*="v-g6-"]',
-//             fivePrizes: 'span[class*="v-g5"]',
-//             fourPrizes: 'span[class*="v-g4-"]',
-//             threePrizes: 'span[class*="v-g3-"]',
-//             secondPrize: 'span[class*="v-g2"]',
-//             firstPrize: 'span[class*="v-g1"]',
-//             specialPrize: 'span[class*="v-gdb"]',
+//             eightPrizes: 'td.giai8 div.giaiSo',
+//             sevenPrizes: 'td.giai7 div.giaiSo',
+//             sixPrizes: 'td.giai6 div.giaiSo',
+//             fivePrizes: 'td.giai5 div.giaiSo',
+//             fourPrizes: 'td.giai4 div.giaiSo',
+//             threePrizes: 'td.giai3 div.giaiSo',
+//             secondPrize: 'td.giai2 div.giaiSo',
+//             firstPrize: 'td.giai1 div.giaiSo',
+//             specialPrize: 'td.giaidb div.giaiSo',
 //         };
 
 //         const prizeLimits = {
@@ -268,59 +277,57 @@
 //             try {
 //                 if (iteration === 1) {
 //                     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 7000 });
-//                     await page.waitForSelector('table.kqsx-mt tr.bg-pr', { timeout: 2000 }).catch(() => {
+//                     await page.waitForSelector('table.bkqmiennam tr td.tinh', { timeout: 2000 }).catch(() => {
 //                         console.log('Chưa thấy hàng tỉnh, tiếp tục cào...');
 //                     });
 //                 } else {
-//                     await page.waitForSelector('table.kqsx-mt tr.bg-pr', { timeout: 2000 }).catch(() => {
+//                     await page.waitForSelector('table.bkqmiennam tr td.tinh', { timeout: 2000 }).catch(() => {
 //                         console.log('Chưa thấy hàng tỉnh, tiếp tục cào...');
 //                     });
 //                 }
 
 //                 const result = await page.evaluate(({ selectors, prizeLimits }) => {
-//                     const getPrizeForProvince = (selector, provinceIndex, limit) => {
+//                     const getPrizeForProvince = (selector, provinceTable, limit) => {
 //                         try {
-//                             const elements = document.querySelectorAll(selector);
-//                             const prizeIndex = provinceIndex * limit;
+//                             const elements = provinceTable.querySelectorAll(selector);
 //                             return Array.from(elements)
-//                                 .slice(prizeIndex, prizeIndex + limit)
-//                                 .map(elem => elem.getAttribute('data-id')?.trim() || '')
+//                                 .slice(0, limit)
+//                                 .map(elem => elem.getAttribute('data')?.trim() || '')
 //                                 .filter(prize => prize && prize !== '...' && prize !== '****' && /^\d+$/.test(prize));
 //                         } catch (error) {
-//                             console.error(`Lỗi lấy selector ${selector} cho tỉnh thứ ${provinceIndex}:`, error.message);
+//                             console.error(`Lỗi lấy selector ${selector} cho tỉnh:`, error.message);
 //                             return [];
 //                         }
 //                     };
 
 //                     const provinces = [];
-//                     const provinceRow = document.querySelector('table.kqsx-mt tr.bg-pr');
-//                     if (!provinceRow) {
-//                         return { provinces, provincesData: {}, drawDate: '' };
-//                     }
-//                     provinceRow.querySelectorAll('th').forEach((elem, i) => {
-//                         if (i === 0) return;
-//                         const provinceName = elem.querySelector('a')?.textContent.trim();
+//                     const provinceTables = document.querySelectorAll('table.bkqmiennam tr td table.bangketquaSo');
+//                     provinceTables.forEach((table) => {
+//                         const provinceName = table.querySelector('td.tinh a')?.textContent.trim();
 //                         if (provinceName && !provinceName.startsWith('Tỉnh_')) {
 //                             provinces.push(provinceName);
 //                         }
 //                     });
 
 //                     const provincesData = {};
-//                     provinces.forEach((province, index) => {
-//                         provincesData[province] = {
-//                             eightPrizes: getPrizeForProvince(selectors.eightPrizes, index, prizeLimits.eightPrizes),
-//                             sevenPrizes: getPrizeForProvince(selectors.sevenPrizes, index, prizeLimits.sevenPrizes),
-//                             sixPrizes: getPrizeForProvince(selectors.sixPrizes, index, prizeLimits.sixPrizes),
-//                             fivePrizes: getPrizeForProvince(selectors.fivePrizes, index, prizeLimits.fivePrizes),
-//                             fourPrizes: getPrizeForProvince(selectors.fourPrizes, index, prizeLimits.fourPrizes),
-//                             threePrizes: getPrizeForProvince(selectors.threePrizes, index, prizeLimits.threePrizes),
-//                             secondPrize: getPrizeForProvince(selectors.secondPrize, index, prizeLimits.secondPrize),
-//                             firstPrize: getPrizeForProvince(selectors.firstPrize, index, prizeLimits.firstPrize),
-//                             specialPrize: getPrizeForProvince(selectors.specialPrize, index, prizeLimits.specialPrize),
-//                         };
+//                     provinceTables.forEach((table) => {
+//                         const provinceName = table.querySelector('td.tinh a')?.textContent.trim();
+//                         if (provinceName && !provinceName.startsWith('Tỉnh_')) {
+//                             provincesData[provinceName] = {
+//                                 eightPrizes: getPrizeForProvince(selectors.eightPrizes, table, prizeLimits.eightPrizes),
+//                                 sevenPrizes: getPrizeForProvince(selectors.sevenPrizes, table, prizeLimits.sevenPrizes),
+//                                 sixPrizes: getPrizeForProvince(selectors.sixPrizes, table, prizeLimits.sixPrizes),
+//                                 fivePrizes: getPrizeForProvince(selectors.fivePrizes, table, prizeLimits.fivePrizes),
+//                                 fourPrizes: getPrizeForProvince(selectors.fourPrizes, table, prizeLimits.fourPrizes),
+//                                 threePrizes: getPrizeForProvince(selectors.threePrizes, table, prizeLimits.threePrizes),
+//                                 secondPrize: getPrizeForProvince(selectors.secondPrize, table, prizeLimits.secondPrize),
+//                                 firstPrize: getPrizeForProvince(selectors.firstPrize, table, prizeLimits.firstPrize),
+//                                 specialPrize: getPrizeForProvince(selectors.specialPrize, table, prizeLimits.specialPrize),
+//                             };
+//                         }
 //                     });
 
-//                     const drawDate = document.querySelector('.ngay_quay, .draw-date, .date, h1.df-title')?.textContent.trim().match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || '';
+//                     const drawDate = document.querySelector('td.ngay')?.textContent.trim() || '';
 //                     return { provinces, provincesData, drawDate };
 //                 }, { selectors, prizeLimits });
 
@@ -515,7 +522,7 @@
 //     console.log(`Chạy thủ công cho ngày ${date} và đài ${station}${isTestMode ? ' (chế độ thử nghiệm)' : ''}`);
 //     scrapeXSMT(date, station, isTestMode);
 // } else {
-//     console.log('Chạy thủ công: node xsmt_scraper.js 18/06/2025 xsmt [test]');
+//     console.log('Chạy thủ công: node xsmt_scraper.js DD/MM/YYYY xsmt [test]');
 // }
 
 // process.on('SIGINT', async () => {
@@ -523,4 +530,4 @@
 //     console.log('Đã đóng kết nối Redis MIỀN TRUNG');
 //     process.exit(0);
 // });
-// // phiên bản này (cần test) không có DateHash(22/06)
+// phiên bản gốc pubish nguyên mảng sửa ngày 24/7

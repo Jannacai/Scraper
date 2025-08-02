@@ -199,7 +199,7 @@ async function scrapeXSMN(date, station, isTestMode = false) {
 
         await connectMongoDB();
 
-        const isLiveWindow = new Date().getHours() === 16 && new Date().getMinutes() >= 10 && new Date().getMinutes() <= 40;
+        const isLiveWindow = new Date().getHours() === 16 && new Date().getMinutes() >= 11 && new Date().getMinutes() <= 40;
         const intervalMs = isTestMode || isLiveWindow ? 1000 : 1000;
         console.log(`intervalMs: ${intervalMs}ms (isLiveWindow: ${isLiveWindow}, isTestMode: ${isTestMode})`);
 
@@ -276,7 +276,9 @@ async function scrapeXSMN(date, station, isTestMode = false) {
                         if (provinceName === 'Đồng Nai') return 'DN';
                         if (provinceName === 'Cần Thơ') return 'CT';
                         if (provinceName === 'Sóc Trăng') return 'ST';
-
+                        if (provinceName === 'An Giang') return 'AG';
+                        if (provinceName === 'Tây Ninh') return 'TN';
+                        if (provinceName === 'Sóc Trăng') return 'ST';
 
                         return provinceName
                             .normalize('NFD')

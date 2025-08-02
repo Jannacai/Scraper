@@ -6,6 +6,7 @@ const compression = require('compression');
 const { connectMongoDB, closeMongoDB } = require('./db');
 require('dotenv').config();
 const routes = require('./src/routes/index');
+const { startScraperScheduler, startXSMTScraperScheduler, startXSMNScraperScheduler } = require('./src/services/scraperScheduler');
 const app = express();
 
 // Middleware
@@ -36,10 +37,35 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
     console.log(`Scraper API running on port ${PORT}`);
+
+    // Khởi động XSMB Scraper Scheduler sau khi server start
+    try {
+        startScraperScheduler();
+        console.log('✅ XSMB Scraper Scheduler đã được khởi động thành công');
+    } catch (error) {
+        console.error('❌ Lỗi khởi động XSMB Scraper Scheduler:', error);
+    }
+
+            // Khởi động XSMT Scraper Scheduler sau khi server start
+        try {
+            startXSMTScraperScheduler();
+            console.log('✅ XSMT Scraper Scheduler đã được khởi động thành công');
+        } catch (error) {
+            console.error('❌ Lỗi khởi động XSMT Scraper Scheduler:', error);
+        }
+
+        // Khởi động XSMN Scraper Scheduler sau khi server start
+        try {
+            startXSMNScraperScheduler();
+            console.log('✅ XSMN Scraper Scheduler đã được khởi động thành công');
+        } catch (error) {
+            console.error('❌ Lỗi khởi động XSMN Scraper Scheduler:', error);
+        }
 });
 
 // Đóng kết nối khi server dừng
 process.on('SIGINT', async () => {
+    console.log('🛑 Đang dừng server và đóng kết nối...');
     await closeMongoDB();
     process.exit(0);
 });

@@ -1,40 +1,26 @@
-FROM node:18-slim
+FROM node:18-alpine
 
-# Cài đặt các thư viện phụ thuộc cho Puppeteer
-RUN apt-get update && apt-get install -y \
-    libglib2.0-0 \
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpango-1.0-0 \
-    libcairo2 \
-    fonts-liberation \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Thiết lập thư mục làm việc
+# Tạo thư mục làm việc
 WORKDIR /app
 
-# Sao chép và cài đặt dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm install
 
-# Sao chép mã nguồn
+# Cài đặt dependencies
+RUN npm ci --only=production
+
+# Copy source code
 COPY . .
 
-# Cấu hình môi trường
-ENV NODE_ENV=production
+# Tạo thư mục logs nếu chưa có
+RUN mkdir -p logs
+
+# Expose port
 EXPOSE 4000
 
-# Chạy ứng dụng
-CMD ["node", "index.js"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f https://scraper-1-fewd.onrender.com/api/scraper/status || exit 1
+
+# Start command
+CMD ["npm", "start"]

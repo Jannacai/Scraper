@@ -73,7 +73,16 @@ async function publishToRedis(changes, additionalData) {
         console.log(`Chuẩn bị gửi ${changes.length} thay đổi tới Redis với khóa: ${redisKey}`);
         const pipeline = redisClient.multi();
         for (const { key, data } of changes) {
-            pipeline.publish(`xsmt:${today}:${tinh}`, JSON.stringify({ prizeType: key, prizeData: data, drawDate: today, tentinh, tinh, year, month }));
+            // Publish vào kênh chung xsmt:${today}
+            pipeline.publish(`xsmt:${today}`, JSON.stringify({
+                prizeType: key,
+                prizeData: data,
+                drawDate: today,
+                tentinh,
+                tinh,
+                year,
+                month
+            }));
             pipeline.hSet(redisKey, key, JSON.stringify(data));
         }
         pipeline.hSet(`${redisKey}:meta`, 'metadata', JSON.stringify({ tentinh, tinh, year, month }));
@@ -521,4 +530,4 @@ process.on('SIGINT', async () => {
     console.log('Đã đóng kết nối Redis MIỀN TRUNG');
     process.exit(0);
 });
-// mã này là cào từ trang Minh Ngọc,
+// phiên bản gốc pubish nguyên mảng sửa ngày 24/7
