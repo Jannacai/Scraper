@@ -3,5 +3,18 @@
   "05-05-2025_xsmb": {
     "completed": true,
     "timestamp": "2025-05-05T14:39:03.925Z"
+  },
+  "isRunning": false,
+  "lastRun": "2025-08-02T10:25:05.278Z",
+  "totalRuns": null,
+  "successfulRuns": 1,
+  "failedRuns": 0,
+  "lastError": null,
+  "performanceStats": {
+    "totalChecks": 3,
+    "successfulRuns": 1,
+    "failedRuns": 0,
+    "averageCheckTime": 0,
+    "lastCheckTime": 0
   }
 }
