@@ -40,7 +40,7 @@ const XSMT_CONFIG = {
 
 // Cấu hình scheduler cho XSMN từ environment variables
 const XSMN_CONFIG = {
-    schedule: process.env.SCRAPE_SCHEDULE_MN || '16 16 * * *', // Chạy lúc 16h12 mỗi ngày
+    schedule: process.env.SCRAPE_SCHEDULE_MN || '24 16 * * *', // Chạy lúc 16h12 mỗi ngày
     station: 'xsmn',
     duration: 30 * 60 * 1000, // 30 phút (từ 16h12 đến 16h42)
     retryAttempts: parseInt(process.env.SCRAPER_RETRY_ATTEMPTS) || 3,
@@ -290,7 +290,7 @@ const startXSMNScraperScheduler = () => {
     // Tính toán thời gian chạy tiếp theo
     const now = getVietnamTime();
     const nextRun = new Date(now);
-    nextRun.setHours(16, 16, 0, 0);
+    nextRun.setHours(16, 24, 0, 0);
 
     if (now > nextRun) {
         nextRun.setDate(nextRun.getDate() + 1);
@@ -338,7 +338,7 @@ const startXSMNScraperScheduler = () => {
             // Tính toán thời gian chạy tiếp theo
             const nextRun = new Date();
             nextRun.setDate(nextRun.getDate() + 1);
-            nextRun.setHours(16, 16, 0, 0);
+            nextRun.setHours(16, 24, 0, 0);
             schedulerState.xsmn.nextRun = nextRun;
         }
     }, {

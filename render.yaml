@@ -25,7 +25,7 @@ services:
       - key: SCRAPE_SCHEDULE_MT
         value: "14 17 * * *"
       - key: SCRAPE_SCHEDULE_MN
-        value: "16 16 * * *"
+        value: "24 16 * * *"
       - key: TIMEZONE
         value: Asia/Ho_Chi_Minh
       - key: SCRAPER_RETRY_ATTEMPTS
