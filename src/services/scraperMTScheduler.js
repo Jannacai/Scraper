@@ -1,7 +1,7 @@
-const { scrapeXSMB } = require('../../scraper');
+const { scrapeXSMT } = require('../../scraperMT');
 const { connectMongoDB } = require('../../db');
 
-class ScraperScheduler {
+class ScraperMTScheduler {
     constructor() {
         this.scheduler = null;
         this.isRunning = false;
@@ -21,6 +21,41 @@ class ScraperScheduler {
         // ✅ TỐI ƯU: Tính toán thời gian kích hoạt tiếp theo
         this.nextTriggerTime = null;
         this.updateNextTriggerTime();
+
+        // ✅ TỐI ƯU: Cache provinces theo ngày trong tuần
+        this.provincesByDay = {
+            1: [ // Thứ 2
+                { tinh: 'hue', tentinh: 'Huế' },
+                { tinh: 'phu-yen', tentinh: 'Phú Yên' },
+            ],
+            2: [ // Thứ 3
+                { tinh: 'dak-lak', tentinh: 'Đắk Lắk' },
+                { tinh: 'quang-nam', tentinh: 'Quảng Nam' },
+            ],
+            3: [ // Thứ 4
+                { tinh: 'da-nang', tentinh: 'Đà Nẵng' },
+                { tinh: 'khanh-hoa', tentinh: 'Khánh Hòa' },
+            ],
+            4: [ // Thứ 5
+                { tinh: 'binh-dinh', tentinh: 'Bình Định' },
+                { tinh: 'quang-tri', tentinh: 'Quảng Trị' },
+                { tinh: 'quang-binh', tentinh: 'Quảng Bình' },
+            ],
+            5: [ // Thứ 6
+                { tinh: 'gia-lai', tentinh: 'Gia Lai' },
+                { tinh: 'ninh-thuan', tentinh: 'Ninh Thuận' },
+            ],
+            6: [ // Thứ 7
+                { tinh: 'da-nang', tentinh: 'Đà Nẵng' },
+                { tinh: 'quang-ngai', tentinh: 'Quảng Ngãi' },
+                { tinh: 'dak-nong', tentinh: 'Đắk Nông' },
+            ],
+            0: [ // Chủ nhật
+                { tinh: 'hue', tentinh: 'Huế' },
+                { tinh: 'kon-tum', tentinh: 'Kon Tum' },
+                { tinh: 'khanh-hoa', tentinh: 'Khánh Hòa' },
+            ],
+        };
     }
 
     // ✅ TỐI ƯU: Cache thời gian Việt Nam
@@ -41,14 +76,21 @@ class ScraperScheduler {
         return `${day}/${month}/${year}`;
     }
 
+    // ✅ TỐI ƯU: Lấy provinces theo ngày trong tuần
+    getProvincesForToday() {
+        const vietnamTime = this.getVietnamTime();
+        const dayOfWeek = vietnamTime.getDay(); // 0 = Chủ nhật, 1 = Thứ 2, ...
+        return this.provincesByDay[dayOfWeek] || [];
+    }
+
     // ✅ TỐI ƯU: Cập nhật thời gian kích hoạt tiếp theo
     updateNextTriggerTime() {
         const now = this.getVietnamTime();
         this.nextTriggerTime = new Date(now);
-        this.nextTriggerTime.setHours(18, 14, 0, 0);
+        this.nextTriggerTime.setHours(17, 14, 0, 0); // 17h14 cho XSMT
 
-        // Nếu đã qua 18h14 hôm nay, tính cho ngày mai
-        if (now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 14)) {
+        // Nếu đã qua 17h14 hôm nay, tính cho ngày mai
+        if (now.getHours() > 17 || (now.getHours() === 17 && now.getMinutes() >= 14)) {
             this.nextTriggerTime.setDate(this.nextTriggerTime.getDate() + 1);
         }
     }
@@ -79,40 +121,56 @@ class ScraperScheduler {
         try {
             const vietnamTime = this.getVietnamTime();
             const today = this.formatDate(vietnamTime);
+            const provinces = this.getProvincesForToday();
 
             // Kiểm tra xem đã chạy hôm nay chưa
             if (this.hasRunToday()) {
-                console.log(`🔄 Scraper đã chạy hôm nay (${today}), bỏ qua`);
+                console.log(`🔄 Scraper XSMT đã chạy hôm nay (${today}), bỏ qua`);
                 return;
             }
 
-            console.log(`🚀 Tự động kích hoạt scraper cho ngày ${today} - XSMB`);
+            // Kiểm tra có provinces cho ngày hôm nay không
+            if (provinces.length === 0) {
+                console.log(`⚠️ Không có provinces cho ngày ${today} (${vietnamTime.toLocaleDateString('vi-VN', { weekday: 'long' })}), bỏ qua`);
+                return;
+            }
+
+            console.log(`🚀 Tự động kích hoạt scraper XSMT cho ngày ${today} - ${provinces.length} tỉnh`);
+            console.log(`📋 Provinces: ${provinces.map(p => p.tentinh).join(', ')}`);
 
             // Đảm bảo kết nối MongoDB
             await connectMongoDB();
 
-            // Kích hoạt scraper
-            await scrapeXSMB(today, 'xsmb', false);
+            // Kích hoạt scraper cho từng tỉnh
+            for (const province of provinces) {
+                try {
+                    console.log(`🔄 Đang cào dữ liệu cho tỉnh: ${province.tentinh} (${province.tinh})`);
+                    await scrapeXSMT(today, 'xsmt', province.tinh);
+                    console.log(`✅ Đã cào xong tỉnh: ${province.tentinh}`);
+                } catch (error) {
+                    console.error(`❌ Lỗi khi cào tỉnh ${province.tentinh}:`, error.message);
+                }
+            }
 
             // Cập nhật ngày chạy cuối
             this.lastRunDate = today;
 
-            console.log(`✅ Đã kích hoạt scraper thành công cho ngày ${today}`);
+            console.log(`✅ Đã kích hoạt scraper XSMT thành công cho ngày ${today}`);
 
         } catch (error) {
-            console.error('❌ Lỗi khi kích hoạt scraper tự động:', error.message);
+            console.error('❌ Lỗi khi kích hoạt scraper XSMT tự động:', error.message);
         }
     }
 
     // ✅ TỐI ƯU: Khởi động scheduler với interval thông minh
     start() {
         if (this.isRunning) {
-            console.log('⚠️ Scheduler đã đang chạy');
+            console.log('⚠️ XSMT Scheduler đã đang chạy');
             return;
         }
 
-        console.log('🕐 Khởi động Scraper Scheduler...');
-        console.log(`⏰ Sẽ kích hoạt scraper vào 18h14 hàng ngày (múi giờ: ${this.timezone})`);
+        console.log('🕐 Khởi động XSMT Scraper Scheduler...');
+        console.log(`⏰ Sẽ kích hoạt scraper vào 17h14 hàng ngày (múi giờ: ${this.timezone})`);
 
         this.isRunning = true;
 
@@ -170,7 +228,7 @@ class ScraperScheduler {
 
         setDynamicInterval();
 
-        console.log('✅ Scraper Scheduler đã khởi động thành công');
+        console.log('✅ XSMT Scraper Scheduler đã khởi động thành công');
     }
 
     // Dừng scheduler
@@ -180,7 +238,7 @@ class ScraperScheduler {
             this.scheduler = null;
         }
         this.isRunning = false;
-        console.log('🛑 Đã dừng Scraper Scheduler');
+        console.log('🛑 Đã dừng XSMT Scraper Scheduler');
     }
 
     // ✅ TỐI ƯU: Cache trạng thái để tránh tính toán lại
@@ -196,12 +254,16 @@ class ScraperScheduler {
         const minutes = Math.floor((timeUntilNextRun % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((timeUntilNextRun % (1000 * 60)) / 1000);
 
+        const provinces = this.getProvincesForToday();
+
         this.cachedStatus = {
             isRunning: this.isRunning,
             lastRunDate: this.lastRunDate,
             nextRun: this.nextTriggerTime.toLocaleString('vi-VN', { timeZone: this.timezone }),
             timeUntilNextRun: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
-            currentTime: vietnamTime.toLocaleString('vi-VN', { timeZone: this.timezone })
+            currentTime: vietnamTime.toLocaleString('vi-VN', { timeZone: this.timezone }),
+            todayProvinces: provinces.map(p => p.tentinh),
+            todayDayOfWeek: vietnamTime.toLocaleDateString('vi-VN', { weekday: 'long' })
         };
 
         this.lastStatusCache = now;
@@ -209,23 +271,25 @@ class ScraperScheduler {
     }
 
     // Kích hoạt thủ công (cho testing)
-    async manualTrigger(date = null, station = 'xsmb') {
+    async manualTrigger(date = null, station = 'xsmt', province = null) {
         try {
             const targetDate = date || this.formatDate(this.getVietnamTime());
-            console.log(`🔧 Kích hoạt thủ công scraper cho ngày ${targetDate} - ${station}`);
+            const targetProvince = province || 'hue'; // Default to Huế
+
+            console.log(`🔧 Kích hoạt thủ công scraper XSMT cho ngày ${targetDate} - ${station} - ${targetProvince}`);
 
             await connectMongoDB();
-            await scrapeXSMB(targetDate, station, false);
+            await scrapeXSMT(targetDate, station, targetProvince);
 
             console.log(`✅ Kích hoạt thủ công thành công cho ngày ${targetDate}`);
         } catch (error) {
-            console.error('❌ Lỗi khi kích hoạt thủ công:', error.message);
+            console.error('❌ Lỗi khi kích hoạt thủ công XSMT:', error.message);
             throw error;
         }
     }
 }
 
 // Tạo instance singleton
-const scraperScheduler = new ScraperScheduler();
+const scraperMTScheduler = new ScraperMTScheduler();
 
-module.exports = scraperScheduler;
+module.exports = scraperMTScheduler; 
