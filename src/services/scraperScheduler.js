@@ -45,10 +45,10 @@ class ScraperScheduler {
     updateNextTriggerTime() {
         const now = this.getVietnamTime();
         this.nextTriggerTime = new Date(now);
-        this.nextTriggerTime.setHours(18, 14, 0, 0);
+        this.nextTriggerTime.setHours(21, 0, 0, 0);
 
         // Nếu đã qua 18h14 hôm nay, tính cho ngày mai
-        if (now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 14)) {
+        if (now.getHours() > 21 || (now.getHours() === 21 && now.getMinutes() >= 0)) {
             this.nextTriggerTime.setDate(this.nextTriggerTime.getDate() + 1);
         }
     }
