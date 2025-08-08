@@ -92,10 +92,10 @@ class ScraperMNScheduler {
     updateNextTriggerTime() {
         const now = this.getVietnamTime();
         this.nextTriggerTime = new Date(now);
-        this.nextTriggerTime.setHours(16, 12, 0, 0); // 16h12 cho XSMN
+        this.nextTriggerTime.setHours(16, 25, 0, 0); // 16h12 cho XSMN
 
         // Nếu đã qua 16h12 hôm nay, tính cho ngày mai
-        if (now.getHours() > 16 || (now.getHours() === 16 && now.getMinutes() >= 12)) {
+        if (now.getHours() > 16 || (now.getHours() === 16 && now.getMinutes() >= 25)) {
             this.nextTriggerTime.setDate(this.nextTriggerTime.getDate() + 1);
         }
     }
